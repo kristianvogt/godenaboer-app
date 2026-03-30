@@ -24,6 +24,7 @@ export default function NewTicketScreen() {
   const { user } = useAuth();
   const router = useRouter();
   const [subject, setSubject] = useState("");
+  const [description, setDescription] = useState("");
   const [image, setImage] = useState<ImagePicker.ImagePickerAsset | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -122,21 +123,42 @@ export default function NewTicketScreen() {
       }
     }
 
-    const { error } = await supabase.from("tickets").insert({
-      organization_id: membership.organization_id,
-      created_by: user.id,
-      subject: subject.trim(),
-      status: "open",
-    });
-
-    setLoading(false);
+    const { data: newTicket, error } = await supabase
+      .from("tickets")
+      .insert({
+        organization_id: membership.organization_id,
+        created_by: user.id,
+        subject: subject.trim(),
+        status: "new",
+      })
+      .select("id")
+      .single();
 
     if (error) {
+      setLoading(false);
       console.log("Ticket-oppretting feilet:", error.message, error.details, error.hint);
       Alert.alert("Feil", `Kunne ikke opprette ticket: ${error.message}`);
-    } else {
-      router.back();
+      return;
     }
+
+    if (description.trim() && newTicket) {
+      const { error: msgError } = await supabase
+        .from("ticket_messages")
+        .insert({
+          ticket_id: newTicket.id,
+          content: description.trim(),
+          sender_type: "sameie",
+          source: "portal",
+          user_id: user.id,
+        });
+
+      if (msgError) {
+        console.log("Melding-oppretting feilet:", msgError.message, msgError.details, msgError.hint);
+      }
+    }
+
+    setLoading(false);
+    router.back();
   }
 
   return (
@@ -159,6 +181,16 @@ export default function NewTicketScreen() {
             placeholder="Kort beskrivelse av problemet"
             value={subject}
             onChangeText={setSubject}
+          />
+
+          <Text style={s.label}>Beskrivelse</Text>
+          <TextInput
+            style={[s.input, s.textArea]}
+            placeholder="Utfyllende beskrivelse..."
+            value={description}
+            onChangeText={setDescription}
+            multiline
+            textAlignVertical="top"
           />
 
           <TouchableOpacity style={s.imagePicker} onPress={pickImage}>
@@ -218,6 +250,9 @@ const s = StyleSheet.create({
     marginBottom: 16,
     fontSize: 16,
     backgroundColor: "#fff",
+  },
+  textArea: {
+    minHeight: 120,
   },
   imagePicker: {
     borderWidth: 1,
