@@ -27,8 +27,8 @@ interface Message {
   id: string;
   content: string;
   created_at: string;
-  user_id: string;
-  profiles: { full_name: string } | null;
+  author_id: string;
+  profiles: { full_name: string | null; email: string } | null;
 }
 
 const statusLabels: Record<string, string> = {
@@ -61,7 +61,7 @@ export default function TicketDetailScreen() {
   async function fetchMessages() {
     const { data } = await supabase
       .from("ticket_messages")
-      .select("id, content, created_at, user_id, profiles(full_name)")
+      .select("id, content, created_at, author_id, profiles:author_id(full_name, email)")
       .eq("ticket_id", id)
       .order("created_at", { ascending: true });
 
@@ -103,7 +103,8 @@ export default function TicketDetailScreen() {
     setSending(true);
     await supabase.from("ticket_messages").insert({
       ticket_id: id,
-      user_id: user.id,
+      author_id: user.id,
+      is_internal: false,
       content: newMessage.trim(),
     });
 
@@ -173,7 +174,7 @@ export default function TicketDetailScreen() {
           data={messages}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => {
-            const isOwn = item.user_id === user?.id;
+            const isOwn = item.author_id === user?.id;
             return (
               <View
                 style={[

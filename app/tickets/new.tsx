@@ -147,9 +147,8 @@ export default function NewTicketScreen() {
         .insert({
           ticket_id: newTicket.id,
           content: description.trim(),
-          sender_type: "sameie",
-          source: "portal",
-          user_id: user.id,
+          author_id: user.id,
+          is_internal: false,
         });
 
       if (msgError) {
