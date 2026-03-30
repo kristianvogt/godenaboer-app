@@ -6,6 +6,8 @@ import {
   RefreshControl,
   ActivityIndicator,
   TouchableOpacity,
+  StyleSheet,
+  Platform,
 } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
 import FontAwesome from "@expo/vector-icons/FontAwesome";
@@ -27,12 +29,14 @@ const statusLabels: Record<string, string> = {
   closed: "Lukket",
 };
 
-const statusColors: Record<string, string> = {
-  open: "bg-blue-100 text-blue-800",
-  in_progress: "bg-yellow-100 text-yellow-800",
-  resolved: "bg-green-100 text-green-800",
-  closed: "bg-gray-100 text-gray-600",
+const statusBadgeStyles: Record<string, { bg: string; text: string }> = {
+  open: { bg: "#DBEAFE", text: "#1E40AF" },
+  in_progress: { bg: "#FEF3C7", text: "#92400E" },
+  resolved: { bg: "#DCFCE7", text: "#166534" },
+  closed: { bg: "#F3F4F6", text: "#4B5563" },
 };
+
+const defaultBadge = { bg: "#F3F4F6", text: "#4B5563" };
 
 export default function TicketsScreen() {
   const { user } = useAuth();
@@ -79,14 +83,14 @@ export default function TicketsScreen() {
 
   if (loading) {
     return (
-      <View className="flex-1 items-center justify-center bg-gray-50">
+      <View style={s.centered}>
         <ActivityIndicator size="large" color="#1F2937" />
       </View>
     );
   }
 
   return (
-    <View className="flex-1 bg-gray-50">
+    <View style={s.screen}>
       <FlatList
         contentContainerStyle={{ padding: 20 }}
         data={tickets}
@@ -95,40 +99,37 @@ export default function TicketsScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
         ListEmptyComponent={
-          <View className="items-center pt-20">
-            <Text className="text-secondary">Ingen tickets funnet.</Text>
+          <View style={{ alignItems: "center", paddingTop: 80 }}>
+            <Text style={s.emptyText}>Ingen tickets funnet.</Text>
           </View>
         }
-        renderItem={({ item }) => (
-          <TouchableOpacity
-            className="bg-white rounded-xl p-4 mb-3 shadow-sm"
-            onPress={() => router.push(`/tickets/${item.id}`)}
-            activeOpacity={0.7}
-          >
-            <View className="flex-row items-center justify-between mb-1">
-              <Text className="text-xs font-mono text-secondary">
-                {item.ticket_id}
-              </Text>
-              <View
-                className={`px-3 py-1 rounded-full ${statusColors[item.status] ?? "bg-gray-100 text-gray-600"}`}
-              >
-                <Text className="text-xs font-medium">
-                  {statusLabels[item.status] ?? item.status}
-                </Text>
+        renderItem={({ item }) => {
+          const badge = statusBadgeStyles[item.status] ?? defaultBadge;
+          return (
+            <TouchableOpacity
+              style={s.card}
+              onPress={() => router.push(`/tickets/${item.id}`)}
+              activeOpacity={0.7}
+            >
+              <View style={s.cardHeader}>
+                <Text style={s.ticketId}>{item.ticket_id}</Text>
+                <View style={[s.badge, { backgroundColor: badge.bg }]}>
+                  <Text style={[s.badgeText, { color: badge.text }]}>
+                    {statusLabels[item.status] ?? item.status}
+                  </Text>
+                </View>
               </View>
-            </View>
-            <Text className="text-base font-semibold text-primary">
-              {item.title}
-            </Text>
-            <Text className="text-xs text-secondary mt-1">
-              {new Date(item.created_at).toLocaleDateString("nb-NO")}
-            </Text>
-          </TouchableOpacity>
-        )}
+              <Text style={s.ticketTitle}>{item.title}</Text>
+              <Text style={s.ticketDate}>
+                {new Date(item.created_at).toLocaleDateString("nb-NO")}
+              </Text>
+            </TouchableOpacity>
+          );
+        }}
       />
 
       <TouchableOpacity
-        className="absolute bottom-6 right-6 bg-primary w-14 h-14 rounded-full items-center justify-center shadow-lg"
+        style={s.fab}
         onPress={() => router.push("/tickets/new")}
       >
         <FontAwesome name="plus" size={20} color="#fff" />
@@ -136,3 +137,76 @@ export default function TicketsScreen() {
     </View>
   );
 }
+
+const s = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: "#F9FAFB",
+  },
+  centered: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#F9FAFB",
+  },
+  emptyText: {
+    color: "#6B7280",
+  },
+  card: {
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  cardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 4,
+  },
+  ticketId: {
+    fontSize: 12,
+    fontFamily: Platform.select({ ios: "Menlo", android: "monospace" }),
+    color: "#6B7280",
+  },
+  badge: {
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 999,
+  },
+  badgeText: {
+    fontSize: 12,
+    fontWeight: "500",
+  },
+  ticketTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#1F2937",
+  },
+  ticketDate: {
+    fontSize: 12,
+    color: "#6B7280",
+    marginTop: 4,
+  },
+  fab: {
+    position: "absolute",
+    bottom: 24,
+    right: 24,
+    backgroundColor: "#1F2937",
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 6,
+  },
+});

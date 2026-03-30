@@ -6,6 +6,7 @@ import {
   RefreshControl,
   ActivityIndicator,
   TouchableOpacity,
+  StyleSheet,
 } from "react-native";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
@@ -25,11 +26,13 @@ const statusLabels: Record<string, string> = {
   cancelled: "Kansellert",
 };
 
-const statusColors: Record<string, string> = {
-  active: "bg-green-100 text-green-800",
-  expired: "bg-gray-100 text-gray-600",
-  cancelled: "bg-red-100 text-red-800",
+const statusBadgeStyles: Record<string, { bg: string; text: string }> = {
+  active: { bg: "#DCFCE7", text: "#166534" },
+  expired: { bg: "#F3F4F6", text: "#4B5563" },
+  cancelled: { bg: "#FEE2E2", text: "#991B1B" },
 };
+
+const defaultBadge = { bg: "#F3F4F6", text: "#4B5563" };
 
 export default function AgreementsScreen() {
   const { user } = useAuth();
@@ -80,7 +83,7 @@ export default function AgreementsScreen() {
 
   if (loading) {
     return (
-      <View className="flex-1 items-center justify-center bg-gray-50">
+      <View style={s.centered}>
         <ActivityIndicator size="large" color="#1F2937" />
       </View>
     );
@@ -88,7 +91,7 @@ export default function AgreementsScreen() {
 
   return (
     <FlatList
-      className="flex-1 bg-gray-50"
+      style={s.screen}
       contentContainerStyle={{ padding: 20 }}
       data={agreements}
       keyExtractor={(item) => item.id}
@@ -96,50 +99,115 @@ export default function AgreementsScreen() {
         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
       }
       ListEmptyComponent={
-        <View className="items-center pt-20">
-          <Text className="text-secondary">Ingen avtaler funnet.</Text>
+        <View style={{ alignItems: "center", paddingTop: 80 }}>
+          <Text style={s.emptyText}>Ingen avtaler funnet.</Text>
         </View>
       }
-      renderItem={({ item }) => (
-        <TouchableOpacity
-          className="bg-white rounded-xl p-4 mb-3 shadow-sm"
-          onPress={() => setExpanded(expanded === item.id ? null : item.id)}
-          activeOpacity={0.7}
-        >
-          <View className="flex-row items-center justify-between">
-            <View className="flex-1">
-              <Text className="text-base font-semibold text-primary">
-                {item.vendor}
-              </Text>
-              <Text className="text-sm text-secondary mt-0.5">{item.type}</Text>
+      renderItem={({ item }) => {
+        const badge = statusBadgeStyles[item.status] ?? defaultBadge;
+        return (
+          <TouchableOpacity
+            style={s.card}
+            onPress={() => setExpanded(expanded === item.id ? null : item.id)}
+            activeOpacity={0.7}
+          >
+            <View style={s.cardRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={s.vendor}>{item.vendor}</Text>
+                <Text style={s.type}>{item.type}</Text>
+              </View>
+              <View style={[s.badge, { backgroundColor: badge.bg }]}>
+                <Text style={[s.badgeText, { color: badge.text }]}>
+                  {statusLabels[item.status] ?? item.status}
+                </Text>
+              </View>
             </View>
-            <View
-              className={`px-3 py-1 rounded-full ${statusColors[item.status] ?? "bg-gray-100 text-gray-600"}`}
-            >
-              <Text className="text-xs font-medium">
-                {statusLabels[item.status] ?? item.status}
-              </Text>
-            </View>
-          </View>
 
-          {expanded === item.id && (
-            <View className="mt-3 pt-3 border-t border-gray-100">
-              <View className="flex-row justify-between mb-1">
-                <Text className="text-sm text-secondary">Startdato</Text>
-                <Text className="text-sm text-primary">
-                  {formatDate(item.start_date)}
-                </Text>
+            {expanded === item.id && (
+              <View style={s.details}>
+                <View style={s.detailRow}>
+                  <Text style={s.detailLabel}>Startdato</Text>
+                  <Text style={s.detailValue}>{formatDate(item.start_date)}</Text>
+                </View>
+                <View style={s.detailRow}>
+                  <Text style={s.detailLabel}>Sluttdato</Text>
+                  <Text style={s.detailValue}>{formatDate(item.end_date)}</Text>
+                </View>
               </View>
-              <View className="flex-row justify-between">
-                <Text className="text-sm text-secondary">Sluttdato</Text>
-                <Text className="text-sm text-primary">
-                  {formatDate(item.end_date)}
-                </Text>
-              </View>
-            </View>
-          )}
-        </TouchableOpacity>
-      )}
+            )}
+          </TouchableOpacity>
+        );
+      }}
     />
   );
 }
+
+const s = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: "#F9FAFB",
+  },
+  centered: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#F9FAFB",
+  },
+  emptyText: {
+    color: "#6B7280",
+  },
+  card: {
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  cardRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  vendor: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#1F2937",
+  },
+  type: {
+    fontSize: 14,
+    color: "#6B7280",
+    marginTop: 2,
+  },
+  badge: {
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 999,
+  },
+  badgeText: {
+    fontSize: 12,
+    fontWeight: "500",
+  },
+  details: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: "#F3F4F6",
+  },
+  detailRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 4,
+  },
+  detailLabel: {
+    fontSize: 14,
+    color: "#6B7280",
+  },
+  detailValue: {
+    fontSize: 14,
+    color: "#1F2937",
+  },
+});

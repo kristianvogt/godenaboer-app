@@ -1,4 +1,4 @@
-import { View, Text, TouchableOpacity, Alert } from "react-native";
+import { View, Text, TouchableOpacity, Alert, StyleSheet } from "react-native";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
 import { registerForPushNotifications } from "@/lib/notifications";
@@ -33,31 +33,71 @@ export default function SettingsScreen() {
   }
 
   return (
-    <View className="flex-1 bg-gray-50 px-5 pt-6">
-      <View className="bg-white rounded-xl p-5 shadow-sm mb-4">
-        <Text className="text-sm text-secondary mb-1">Innlogget som</Text>
-        <Text className="text-base font-semibold text-primary">
-          {user?.email}
-        </Text>
+    <View style={s.screen}>
+      <View style={s.card}>
+        <Text style={s.cardLabel}>Innlogget som</Text>
+        <Text style={s.cardValue}>{user?.email}</Text>
       </View>
 
-      <TouchableOpacity
-        className="bg-white rounded-xl p-4 shadow-sm mb-3"
-        onPress={handleEnablePush}
-      >
-        <Text className="text-base text-primary text-center">
-          Aktiver push-varsler
-        </Text>
+      <TouchableOpacity style={s.actionCard} onPress={handleEnablePush}>
+        <Text style={s.actionText}>Aktiver push-varsler</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity
-        className="bg-white rounded-xl p-4 shadow-sm"
-        onPress={handleLogout}
-      >
-        <Text className="text-base text-red-600 text-center font-medium">
-          Logg ut
-        </Text>
+      <TouchableOpacity style={s.actionCard} onPress={handleLogout}>
+        <Text style={s.logoutText}>Logg ut</Text>
       </TouchableOpacity>
     </View>
   );
 }
+
+const s = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: "#F9FAFB",
+    paddingHorizontal: 20,
+    paddingTop: 24,
+  },
+  card: {
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    padding: 20,
+    marginBottom: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  cardLabel: {
+    fontSize: 13,
+    color: "#6B7280",
+    marginBottom: 4,
+  },
+  cardValue: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#1F2937",
+  },
+  actionCard: {
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  actionText: {
+    fontSize: 16,
+    color: "#1F2937",
+    textAlign: "center",
+  },
+  logoutText: {
+    fontSize: 16,
+    color: "#DC2626",
+    textAlign: "center",
+    fontWeight: "500",
+  },
+});

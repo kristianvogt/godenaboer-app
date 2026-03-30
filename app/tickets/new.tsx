@@ -10,6 +10,7 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
+  StyleSheet,
 } from "react-native";
 import { useRouter, Stack } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
@@ -109,22 +110,20 @@ export default function NewTicketScreen() {
       />
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
-        className="flex-1 bg-gray-50"
+        style={s.screen}
       >
-        <ScrollView className="flex-1 px-5 pt-6">
-          <Text className="text-sm font-medium text-primary mb-1">Tittel</Text>
+        <ScrollView style={s.scroll}>
+          <Text style={s.label}>Tittel</Text>
           <TextInput
-            className="border border-gray-300 rounded-lg px-4 py-3 mb-4 text-base bg-white"
+            style={s.input}
             placeholder="Kort beskrivelse av problemet"
             value={title}
             onChangeText={setTitle}
           />
 
-          <Text className="text-sm font-medium text-primary mb-1">
-            Beskrivelse
-          </Text>
+          <Text style={s.label}>Beskrivelse</Text>
           <TextInput
-            className="border border-gray-300 rounded-lg px-4 py-3 mb-4 text-base bg-white min-h-[120px]"
+            style={[s.input, s.textArea]}
             placeholder="Utfyllende beskrivelse..."
             value={description}
             onChangeText={setDescription}
@@ -132,35 +131,30 @@ export default function NewTicketScreen() {
             textAlignVertical="top"
           />
 
-          <TouchableOpacity
-            className="border border-dashed border-gray-300 rounded-lg p-6 items-center mb-4 bg-white"
-            onPress={pickImage}
-          >
+          <TouchableOpacity style={s.imagePicker} onPress={pickImage}>
             {image ? (
               <Image
                 source={{ uri: image.uri }}
-                className="w-full h-48 rounded-lg"
+                style={s.previewImage}
                 resizeMode="cover"
               />
             ) : (
-              <View className="items-center">
+              <View style={s.imagePickerInner}>
                 <FontAwesome name="camera" size={28} color="#9CA3AF" />
-                <Text className="text-secondary mt-2">Legg til bilde</Text>
+                <Text style={s.imagePickerText}>Legg til bilde</Text>
               </View>
             )}
           </TouchableOpacity>
 
           <TouchableOpacity
-            className="bg-primary rounded-lg py-4 items-center mb-8"
+            style={s.submitButton}
             onPress={handleSubmit}
             disabled={loading}
           >
             {loading ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <Text className="text-white font-semibold text-base">
-                Opprett ticket
-              </Text>
+              <Text style={s.submitText}>Opprett ticket</Text>
             )}
           </TouchableOpacity>
         </ScrollView>
@@ -168,3 +162,68 @@ export default function NewTicketScreen() {
     </>
   );
 }
+
+const s = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: "#F9FAFB",
+  },
+  scroll: {
+    flex: 1,
+    paddingHorizontal: 20,
+    paddingTop: 24,
+  },
+  label: {
+    fontSize: 13,
+    fontWeight: "500",
+    color: "#1F2937",
+    marginBottom: 4,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: "#D1D5DB",
+    borderRadius: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginBottom: 16,
+    fontSize: 16,
+    backgroundColor: "#fff",
+  },
+  textArea: {
+    minHeight: 120,
+  },
+  imagePicker: {
+    borderWidth: 1,
+    borderStyle: "dashed",
+    borderColor: "#D1D5DB",
+    borderRadius: 10,
+    padding: 24,
+    alignItems: "center",
+    marginBottom: 16,
+    backgroundColor: "#fff",
+  },
+  imagePickerInner: {
+    alignItems: "center",
+  },
+  imagePickerText: {
+    color: "#6B7280",
+    marginTop: 8,
+  },
+  previewImage: {
+    width: "100%",
+    height: 192,
+    borderRadius: 10,
+  },
+  submitButton: {
+    backgroundColor: "#1F2937",
+    borderRadius: 10,
+    paddingVertical: 16,
+    alignItems: "center",
+    marginBottom: 32,
+  },
+  submitText: {
+    color: "#fff",
+    fontWeight: "600",
+    fontSize: 16,
+  },
+});

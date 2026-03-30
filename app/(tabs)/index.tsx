@@ -5,6 +5,7 @@ import {
   ScrollView,
   RefreshControl,
   ActivityIndicator,
+  StyleSheet,
 } from "react-native";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
@@ -80,7 +81,7 @@ export default function HomeScreen() {
 
   if (loading) {
     return (
-      <View className="flex-1 items-center justify-center bg-gray-50">
+      <View style={s.centered}>
         <ActivityIndicator size="large" color="#1F2937" />
       </View>
     );
@@ -88,8 +89,8 @@ export default function HomeScreen() {
 
   if (!data) {
     return (
-      <View className="flex-1 items-center justify-center bg-gray-50 px-8">
-        <Text className="text-secondary text-center">
+      <View style={[s.centered, { paddingHorizontal: 32 }]}>
+        <Text style={s.emptyText}>
           Ingen sameie tilknyttet din bruker.
         </Text>
       </View>
@@ -98,40 +99,101 @@ export default function HomeScreen() {
 
   return (
     <ScrollView
-      className="flex-1 bg-gray-50"
+      style={s.screen}
       refreshControl={
         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
       }
     >
-      <View className="px-5 pt-6 pb-4">
-        <Text className="text-2xl font-bold text-primary">{data.name}</Text>
-        <Text className="text-secondary mt-1">{data.address}</Text>
+      <View style={s.header}>
+        <Text style={s.name}>{data.name}</Text>
+        <Text style={s.address}>{data.address}</Text>
       </View>
 
-      <View className="px-5">
-        <View className="bg-white rounded-xl p-5 shadow-sm mb-4">
-          <Text className="text-sm text-secondary mb-1">Enheter</Text>
-          <Text className="text-3xl font-bold text-primary">
-            {data.unit_count}
-          </Text>
+      <View style={s.content}>
+        <View style={s.card}>
+          <Text style={s.cardLabel}>Enheter</Text>
+          <Text style={s.cardValueLarge}>{data.unit_count}</Text>
         </View>
 
-        <View className="flex-row gap-4">
-          <View className="flex-1 bg-white rounded-xl p-5 shadow-sm">
-            <Text className="text-sm text-secondary mb-1">Aktive avtaler</Text>
-            <Text className="text-3xl font-bold text-accent">
-              {data.active_agreements}
-            </Text>
+        <View style={s.row}>
+          <View style={[s.card, s.halfCard]}>
+            <Text style={s.cardLabel}>Aktive avtaler</Text>
+            <Text style={s.cardValueAccent}>{data.active_agreements}</Text>
           </View>
 
-          <View className="flex-1 bg-white rounded-xl p-5 shadow-sm">
-            <Text className="text-sm text-secondary mb-1">Åpne tickets</Text>
-            <Text className="text-3xl font-bold text-accent">
-              {data.open_tickets}
-            </Text>
+          <View style={[s.card, s.halfCard]}>
+            <Text style={s.cardLabel}>Åpne tickets</Text>
+            <Text style={s.cardValueAccent}>{data.open_tickets}</Text>
           </View>
         </View>
       </View>
     </ScrollView>
   );
 }
+
+const s = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: "#F9FAFB",
+  },
+  centered: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#F9FAFB",
+  },
+  emptyText: {
+    color: "#6B7280",
+    textAlign: "center",
+  },
+  header: {
+    paddingHorizontal: 20,
+    paddingTop: 24,
+    paddingBottom: 16,
+  },
+  name: {
+    fontSize: 24,
+    fontWeight: "700",
+    color: "#1F2937",
+  },
+  address: {
+    color: "#6B7280",
+    marginTop: 4,
+  },
+  content: {
+    paddingHorizontal: 20,
+  },
+  card: {
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    padding: 20,
+    marginBottom: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  halfCard: {
+    flex: 1,
+  },
+  row: {
+    flexDirection: "row",
+    gap: 16,
+  },
+  cardLabel: {
+    fontSize: 13,
+    color: "#6B7280",
+    marginBottom: 4,
+  },
+  cardValueLarge: {
+    fontSize: 30,
+    fontWeight: "700",
+    color: "#1F2937",
+  },
+  cardValueAccent: {
+    fontSize: 30,
+    fontWeight: "700",
+    color: "#3B82F6",
+  },
+});

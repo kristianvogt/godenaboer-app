@@ -9,6 +9,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Image,
+  StyleSheet,
 } from "react-native";
 import { useLocalSearchParams, Stack } from "expo-router";
 import FontAwesome from "@expo/vector-icons/FontAwesome";
@@ -116,7 +117,7 @@ export default function TicketDetailScreen() {
 
   if (loading) {
     return (
-      <View className="flex-1 items-center justify-center bg-gray-50">
+      <View style={s.centered}>
         <ActivityIndicator size="large" color="#1F2937" />
       </View>
     );
@@ -124,8 +125,8 @@ export default function TicketDetailScreen() {
 
   if (!ticket) {
     return (
-      <View className="flex-1 items-center justify-center bg-gray-50">
-        <Text className="text-secondary">Ticket ikke funnet.</Text>
+      <View style={s.centered}>
+        <Text style={s.emptyText}>Ticket ikke funnet.</Text>
       </View>
     );
   }
@@ -141,52 +142,44 @@ export default function TicketDetailScreen() {
       />
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
-        className="flex-1 bg-gray-50"
+        style={s.screen}
         keyboardVerticalOffset={90}
       >
         <FlatList
           ref={listRef}
-          className="flex-1"
+          style={{ flex: 1 }}
           contentContainerStyle={{ padding: 20 }}
           onContentSizeChange={() =>
             listRef.current?.scrollToEnd({ animated: false })
           }
           ListHeaderComponent={
-            <View className="mb-4">
-              <View className="bg-white rounded-xl p-5 shadow-sm">
-                <View className="flex-row items-center justify-between mb-2">
-                  <Text className="text-xs text-secondary">
-                    {ticket.ticket_id}
-                  </Text>
-                  <Text className="text-xs font-medium text-accent">
+            <View style={{ marginBottom: 16 }}>
+              <View style={s.detailCard}>
+                <View style={s.detailHeader}>
+                  <Text style={s.ticketIdText}>{ticket.ticket_id}</Text>
+                  <Text style={s.statusText}>
                     {statusLabels[ticket.status] ?? ticket.status}
                   </Text>
                 </View>
-                <Text className="text-lg font-bold text-primary mb-2">
-                  {ticket.title}
-                </Text>
+                <Text style={s.ticketTitle}>{ticket.title}</Text>
                 {ticket.description ? (
-                  <Text className="text-sm text-secondary mb-3">
-                    {ticket.description}
-                  </Text>
+                  <Text style={s.ticketDesc}>{ticket.description}</Text>
                 ) : null}
                 {ticket.image_url ? (
                   <Image
                     source={{ uri: ticket.image_url }}
-                    className="w-full h-48 rounded-lg"
+                    style={s.ticketImage}
                     resizeMode="cover"
                   />
                 ) : null}
-                <Text className="text-xs text-gray-400 mt-3">
+                <Text style={s.createdAt}>
                   Opprettet{" "}
                   {new Date(ticket.created_at).toLocaleDateString("nb-NO")}
                 </Text>
               </View>
 
               {messages.length > 0 && (
-                <Text className="text-sm font-medium text-secondary mt-6 mb-2">
-                  Meldinger
-                </Text>
+                <Text style={s.messagesHeader}>Meldinger</Text>
               )}
             </View>
           }
@@ -196,24 +189,26 @@ export default function TicketDetailScreen() {
             const isOwn = item.user_id === user?.id;
             return (
               <View
-                className={`mb-3 max-w-[85%] ${isOwn ? "self-end" : "self-start"}`}
+                style={[
+                  s.msgRow,
+                  isOwn ? s.msgRowOwn : s.msgRowOther,
+                ]}
               >
                 <View
-                  className={`rounded-xl px-4 py-3 ${isOwn ? "bg-primary" : "bg-white shadow-sm"}`}
+                  style={[
+                    s.msgBubble,
+                    isOwn ? s.msgBubbleOwn : s.msgBubbleOther,
+                  ]}
                 >
                   {!isOwn && item.profiles?.full_name && (
-                    <Text className="text-xs font-medium text-accent mb-1">
-                      {item.profiles.full_name}
-                    </Text>
+                    <Text style={s.msgSender}>{item.profiles.full_name}</Text>
                   )}
-                  <Text
-                    className={`text-sm ${isOwn ? "text-white" : "text-primary"}`}
-                  >
+                  <Text style={isOwn ? s.msgTextOwn : s.msgTextOther}>
                     {item.content}
                   </Text>
                 </View>
                 <Text
-                  className={`text-xs text-gray-400 mt-1 ${isOwn ? "text-right" : ""}`}
+                  style={[s.msgTime, isOwn && { textAlign: "right" }]}
                 >
                   {new Date(item.created_at).toLocaleTimeString("nb-NO", {
                     hour: "2-digit",
@@ -225,16 +220,16 @@ export default function TicketDetailScreen() {
           }}
         />
 
-        <View className="flex-row items-center px-4 py-3 bg-white border-t border-gray-100">
+        <View style={s.inputBar}>
           <TextInput
-            className="flex-1 border border-gray-300 rounded-full px-4 py-2.5 text-base mr-3"
+            style={s.messageInput}
             placeholder="Skriv en melding..."
             value={newMessage}
             onChangeText={setNewMessage}
             multiline
           />
           <TouchableOpacity
-            className="bg-primary w-10 h-10 rounded-full items-center justify-center"
+            style={s.sendButton}
             onPress={sendMessage}
             disabled={sending || !newMessage.trim()}
           >
@@ -249,3 +244,144 @@ export default function TicketDetailScreen() {
     </>
   );
 }
+
+const s = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: "#F9FAFB",
+  },
+  centered: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#F9FAFB",
+  },
+  emptyText: {
+    color: "#6B7280",
+  },
+  detailCard: {
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    padding: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  detailHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 8,
+  },
+  ticketIdText: {
+    fontSize: 12,
+    color: "#6B7280",
+  },
+  statusText: {
+    fontSize: 12,
+    fontWeight: "500",
+    color: "#3B82F6",
+  },
+  ticketTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#1F2937",
+    marginBottom: 8,
+  },
+  ticketDesc: {
+    fontSize: 14,
+    color: "#6B7280",
+    marginBottom: 12,
+  },
+  ticketImage: {
+    width: "100%",
+    height: 192,
+    borderRadius: 10,
+  },
+  createdAt: {
+    fontSize: 12,
+    color: "#9CA3AF",
+    marginTop: 12,
+  },
+  messagesHeader: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: "#6B7280",
+    marginTop: 24,
+    marginBottom: 8,
+  },
+  msgRow: {
+    marginBottom: 12,
+    maxWidth: "85%",
+  },
+  msgRowOwn: {
+    alignSelf: "flex-end",
+  },
+  msgRowOther: {
+    alignSelf: "flex-start",
+  },
+  msgBubble: {
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  msgBubbleOwn: {
+    backgroundColor: "#1F2937",
+  },
+  msgBubbleOther: {
+    backgroundColor: "#fff",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  msgSender: {
+    fontSize: 12,
+    fontWeight: "500",
+    color: "#3B82F6",
+    marginBottom: 4,
+  },
+  msgTextOwn: {
+    fontSize: 14,
+    color: "#fff",
+  },
+  msgTextOther: {
+    fontSize: 14,
+    color: "#1F2937",
+  },
+  msgTime: {
+    fontSize: 12,
+    color: "#9CA3AF",
+    marginTop: 4,
+  },
+  inputBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: "#fff",
+    borderTopWidth: 1,
+    borderTopColor: "#F3F4F6",
+  },
+  messageInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: "#D1D5DB",
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    fontSize: 16,
+    marginRight: 12,
+  },
+  sendButton: {
+    backgroundColor: "#1F2937",
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+});

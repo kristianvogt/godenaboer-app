@@ -8,6 +8,7 @@ import {
   Platform,
   Alert,
   ActivityIndicator,
+  StyleSheet,
 } from "react-native";
 import { supabase } from "@/lib/supabase";
 
@@ -37,19 +38,17 @@ export default function LoginScreen() {
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
-      className="flex-1 bg-white"
+      style={s.container}
     >
-      <View className="flex-1 justify-center px-8">
-        <Text className="text-3xl font-bold text-primary text-center mb-2">
-          Gode Naboer
-        </Text>
-        <Text className="text-secondary text-center mb-10">
+      <View style={s.inner}>
+        <Text style={s.title}>Gode Naboer</Text>
+        <Text style={s.subtitle}>
           Logg inn for å administrere ditt sameie
         </Text>
 
-        <Text className="text-sm font-medium text-primary mb-1">E-post</Text>
+        <Text style={s.label}>E-post</Text>
         <TextInput
-          className="border border-gray-300 rounded-lg px-4 py-3 mb-4 text-base"
+          style={s.input}
           placeholder="din@epost.no"
           value={email}
           onChangeText={setEmail}
@@ -58,9 +57,9 @@ export default function LoginScreen() {
           autoComplete="email"
         />
 
-        <Text className="text-sm font-medium text-primary mb-1">Passord</Text>
+        <Text style={s.label}>Passord</Text>
         <TextInput
-          className="border border-gray-300 rounded-lg px-4 py-3 mb-6 text-base"
+          style={[s.input, { marginBottom: 24 }]}
           placeholder="Ditt passord"
           value={password}
           onChangeText={setPassword}
@@ -69,17 +68,67 @@ export default function LoginScreen() {
         />
 
         <TouchableOpacity
-          className="bg-primary rounded-lg py-4 items-center"
+          style={s.button}
           onPress={handleLogin}
           disabled={loading}
         >
           {loading ? (
             <ActivityIndicator color="#fff" />
           ) : (
-            <Text className="text-white font-semibold text-base">Logg inn</Text>
+            <Text style={s.buttonText}>Logg inn</Text>
           )}
         </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>
   );
 }
+
+const s = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: "#fff",
+  },
+  inner: {
+    flex: 1,
+    justifyContent: "center",
+    paddingHorizontal: 32,
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: "700",
+    color: "#1F2937",
+    textAlign: "center",
+    marginBottom: 8,
+  },
+  subtitle: {
+    color: "#6B7280",
+    textAlign: "center",
+    marginBottom: 40,
+  },
+  label: {
+    fontSize: 13,
+    fontWeight: "500",
+    color: "#1F2937",
+    marginBottom: 4,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: "#D1D5DB",
+    borderRadius: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginBottom: 16,
+    fontSize: 16,
+  },
+  button: {
+    backgroundColor: "#1F2937",
+    borderRadius: 10,
+    paddingVertical: 16,
+    alignItems: "center",
+  },
+  buttonText: {
+    color: "#fff",
+    fontWeight: "600",
+    fontSize: 16,
+  },
+});
