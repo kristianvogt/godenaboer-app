@@ -10,7 +10,7 @@ import {
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
 
-interface SameieData {
+interface OrgData {
   name: string;
   address: string;
   unit_count: number;
@@ -20,47 +20,49 @@ interface SameieData {
 
 export default function HomeScreen() {
   const { user } = useAuth();
-  const [data, setData] = useState<SameieData | null>(null);
+  const [data, setData] = useState<OrgData | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   async function fetchData() {
     if (!user) return;
 
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("sameie_id")
-      .eq("id", user.id)
+    const { data: membership } = await supabase
+      .from("memberships")
+      .select("organization_id")
+      .eq("user_id", user.id)
       .single();
 
-    if (!profile?.sameie_id) {
+    if (!membership?.organization_id) {
       setLoading(false);
       return;
     }
 
-    const [sameieRes, agreementsRes, ticketsRes] = await Promise.all([
+    const orgId = membership.organization_id;
+
+    const [orgRes, agreementsRes, ticketsRes] = await Promise.all([
       supabase
-        .from("sameier")
+        .from("organizations")
         .select("name, address, unit_count")
-        .eq("id", profile.sameie_id)
+        .eq("id", orgId)
         .single(),
       supabase
-        .from("agreements")
+        .from("org_agreements")
         .select("id", { count: "exact", head: true })
-        .eq("sameie_id", profile.sameie_id)
+        .eq("organization_id", orgId)
         .eq("status", "active"),
       supabase
         .from("tickets")
         .select("id", { count: "exact", head: true })
-        .eq("sameie_id", profile.sameie_id)
+        .eq("organization_id", orgId)
         .in("status", ["open", "in_progress"]),
     ]);
 
-    if (sameieRes.data) {
+    if (orgRes.data) {
       setData({
-        name: sameieRes.data.name,
-        address: sameieRes.data.address,
-        unit_count: sameieRes.data.unit_count,
+        name: orgRes.data.name,
+        address: orgRes.data.address,
+        unit_count: orgRes.data.unit_count,
         active_agreements: agreementsRes.count ?? 0,
         open_tickets: ticketsRes.count ?? 0,
       });
@@ -91,7 +93,7 @@ export default function HomeScreen() {
     return (
       <View style={[s.centered, { paddingHorizontal: 32 }]}>
         <Text style={s.emptyText}>
-          Ingen sameie tilknyttet din bruker.
+          Ingen organisasjon tilknyttet din bruker.
         </Text>
       </View>
     );

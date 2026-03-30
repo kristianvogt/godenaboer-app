@@ -17,7 +17,7 @@ import { useAuth } from "@/hooks/useAuth";
 interface Ticket {
   id: string;
   ticket_id: string;
-  title: string;
+  subject: string;
   status: string;
   created_at: string;
 }
@@ -48,21 +48,21 @@ export default function TicketsScreen() {
   async function fetchTickets() {
     if (!user) return;
 
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("sameie_id")
-      .eq("id", user.id)
+    const { data: membership } = await supabase
+      .from("memberships")
+      .select("organization_id")
+      .eq("user_id", user.id)
       .single();
 
-    if (!profile?.sameie_id) {
+    if (!membership?.organization_id) {
       setLoading(false);
       return;
     }
 
     const { data } = await supabase
       .from("tickets")
-      .select("id, ticket_id, title, status, created_at")
-      .eq("sameie_id", profile.sameie_id)
+      .select("id, ticket_id, subject, status, created_at")
+      .eq("organization_id", membership.organization_id)
       .order("created_at", { ascending: false });
 
     setTickets(data ?? []);
@@ -119,7 +119,7 @@ export default function TicketsScreen() {
                   </Text>
                 </View>
               </View>
-              <Text style={s.ticketTitle}>{item.title}</Text>
+              <Text style={s.ticketTitle}>{item.subject}</Text>
               <Text style={s.ticketDate}>
                 {new Date(item.created_at).toLocaleDateString("nb-NO")}
               </Text>

@@ -8,7 +8,6 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
-  Image,
   StyleSheet,
 } from "react-native";
 import { useLocalSearchParams, Stack } from "expo-router";
@@ -19,10 +18,8 @@ import { useAuth } from "@/hooks/useAuth";
 interface TicketDetail {
   id: string;
   ticket_id: string;
-  title: string;
-  description: string;
+  subject: string;
   status: string;
-  image_url: string | null;
   created_at: string;
 }
 
@@ -54,7 +51,7 @@ export default function TicketDetailScreen() {
   async function fetchTicket() {
     const { data } = await supabase
       .from("tickets")
-      .select("id, ticket_id, title, description, status, image_url, created_at")
+      .select("id, ticket_id, subject, status, created_at")
       .eq("id", id)
       .single();
 
@@ -161,17 +158,7 @@ export default function TicketDetailScreen() {
                     {statusLabels[ticket.status] ?? ticket.status}
                   </Text>
                 </View>
-                <Text style={s.ticketTitle}>{ticket.title}</Text>
-                {ticket.description ? (
-                  <Text style={s.ticketDesc}>{ticket.description}</Text>
-                ) : null}
-                {ticket.image_url ? (
-                  <Image
-                    source={{ uri: ticket.image_url }}
-                    style={s.ticketImage}
-                    resizeMode="cover"
-                  />
-                ) : null}
+                <Text style={s.ticketTitle}>{ticket.subject}</Text>
                 <Text style={s.createdAt}>
                   Opprettet{" "}
                   {new Date(ticket.created_at).toLocaleDateString("nb-NO")}
@@ -289,16 +276,6 @@ const s = StyleSheet.create({
     fontWeight: "700",
     color: "#1F2937",
     marginBottom: 8,
-  },
-  ticketDesc: {
-    fontSize: 14,
-    color: "#6B7280",
-    marginBottom: 12,
-  },
-  ticketImage: {
-    width: "100%",
-    height: 192,
-    borderRadius: 10,
   },
   createdAt: {
     fontSize: 12,

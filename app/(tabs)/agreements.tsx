@@ -44,21 +44,21 @@ export default function AgreementsScreen() {
   async function fetchAgreements() {
     if (!user) return;
 
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("sameie_id")
-      .eq("id", user.id)
+    const { data: membership } = await supabase
+      .from("memberships")
+      .select("organization_id")
+      .eq("user_id", user.id)
       .single();
 
-    if (!profile?.sameie_id) {
+    if (!membership?.organization_id) {
       setLoading(false);
       return;
     }
 
     const { data } = await supabase
-      .from("agreements")
+      .from("org_agreements")
       .select("id, vendor, type, status, start_date, end_date")
-      .eq("sameie_id", profile.sameie_id)
+      .eq("organization_id", membership.organization_id)
       .order("status", { ascending: true })
       .order("start_date", { ascending: false });
 

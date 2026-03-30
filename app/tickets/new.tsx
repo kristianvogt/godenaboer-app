@@ -11,6 +11,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   StyleSheet,
+  ActionSheetIOS,
 } from "react-native";
 import { useRouter, Stack } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
@@ -22,25 +23,61 @@ import { decode } from "base64-arraybuffer";
 export default function NewTicketScreen() {
   const { user } = useAuth();
   const router = useRouter();
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
+  const [subject, setSubject] = useState("");
   const [image, setImage] = useState<ImagePicker.ImagePickerAsset | null>(null);
   const [loading, setLoading] = useState(false);
 
-  async function pickImage() {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ["images"],
-      quality: 0.7,
-      base64: true,
-    });
+  const imagePickerOptions: ImagePicker.ImagePickerOptions = {
+    mediaTypes: ["images"],
+    quality: 0.7,
+    base64: true,
+  };
 
+  async function launchCamera() {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== "granted") {
+      Alert.alert(
+        "Tillatelse kreves",
+        "Appen trenger tilgang til kameraet for å ta bilder."
+      );
+      return;
+    }
+    const result = await ImagePicker.launchCameraAsync(imagePickerOptions);
     if (!result.canceled && result.assets[0]) {
       setImage(result.assets[0]);
     }
   }
 
+  async function launchLibrary() {
+    const result = await ImagePicker.launchImageLibraryAsync(imagePickerOptions);
+    if (!result.canceled && result.assets[0]) {
+      setImage(result.assets[0]);
+    }
+  }
+
+  function pickImage() {
+    if (Platform.OS === "ios") {
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          options: ["Avbryt", "Ta bilde", "Velg fra album"],
+          cancelButtonIndex: 0,
+        },
+        (buttonIndex) => {
+          if (buttonIndex === 1) launchCamera();
+          if (buttonIndex === 2) launchLibrary();
+        }
+      );
+    } else {
+      Alert.alert("Legg til bilde", "", [
+        { text: "Ta bilde", onPress: launchCamera },
+        { text: "Velg fra album", onPress: launchLibrary },
+        { text: "Avbryt", style: "cancel" },
+      ]);
+    }
+  }
+
   async function handleSubmit() {
-    if (!title.trim()) {
+    if (!subject.trim()) {
       Alert.alert("Feil", "Vennligst fyll inn en tittel.");
       return;
     }
@@ -49,14 +86,14 @@ export default function NewTicketScreen() {
 
     setLoading(true);
 
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("sameie_id")
-      .eq("id", user.id)
+    const { data: membership } = await supabase
+      .from("memberships")
+      .select("organization_id")
+      .eq("user_id", user.id)
       .single();
 
-    if (!profile?.sameie_id) {
-      Alert.alert("Feil", "Ingen sameie tilknyttet din bruker.");
+    if (!membership?.organization_id) {
+      Alert.alert("Feil", "Ingen organisasjon tilknyttet din bruker.");
       setLoading(false);
       return;
     }
@@ -71,6 +108,10 @@ export default function NewTicketScreen() {
           contentType: "image/jpeg",
         });
 
+      if (uploadError) {
+        console.log("Bildeopplasting feilet:", uploadError.message);
+      }
+
       if (uploadData && !uploadError) {
         const {
           data: { publicUrl },
@@ -82,18 +123,17 @@ export default function NewTicketScreen() {
     }
 
     const { error } = await supabase.from("tickets").insert({
-      sameie_id: profile.sameie_id,
+      organization_id: membership.organization_id,
       created_by: user.id,
-      title: title.trim(),
-      description: description.trim(),
-      image_url: imageUrl,
+      subject: subject.trim(),
       status: "open",
     });
 
     setLoading(false);
 
     if (error) {
-      Alert.alert("Feil", "Kunne ikke opprette ticket. Prøv igjen.");
+      console.log("Ticket-oppretting feilet:", error.message, error.details, error.hint);
+      Alert.alert("Feil", `Kunne ikke opprette ticket: ${error.message}`);
     } else {
       router.back();
     }
@@ -117,18 +157,8 @@ export default function NewTicketScreen() {
           <TextInput
             style={s.input}
             placeholder="Kort beskrivelse av problemet"
-            value={title}
-            onChangeText={setTitle}
-          />
-
-          <Text style={s.label}>Beskrivelse</Text>
-          <TextInput
-            style={[s.input, s.textArea]}
-            placeholder="Utfyllende beskrivelse..."
-            value={description}
-            onChangeText={setDescription}
-            multiline
-            textAlignVertical="top"
+            value={subject}
+            onChangeText={setSubject}
           />
 
           <TouchableOpacity style={s.imagePicker} onPress={pickImage}>
@@ -188,9 +218,6 @@ const s = StyleSheet.create({
     marginBottom: 16,
     fontSize: 16,
     backgroundColor: "#fff",
-  },
-  textArea: {
-    minHeight: 120,
   },
   imagePicker: {
     borderWidth: 1,
