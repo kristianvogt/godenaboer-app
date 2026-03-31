@@ -22,7 +22,12 @@ export default function SettingsScreen() {
   async function handleEnablePush() {
     if (!user) return;
     const token = await registerForPushNotifications(user.id);
-    if (token) {
+    if (token === "expo-go") {
+      Alert.alert(
+        "Ikke støttet",
+        "Push-varsler er ikke støttet i Expo Go. Dette vil fungere i den publiserte appen."
+      );
+    } else if (token) {
       Alert.alert("Aktivert", "Push-varsler er nå aktivert.");
     } else {
       Alert.alert(
