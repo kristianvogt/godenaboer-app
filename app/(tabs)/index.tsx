@@ -27,11 +27,13 @@ export default function HomeScreen() {
   async function fetchData() {
     if (!user) return;
 
-    const { data: membership } = await supabase
+    const { data: membership, error: membershipError } = await supabase
       .from("memberships")
       .select("organization_id")
       .eq("user_id", user.id)
       .single();
+
+    console.log("Membership:", membership, "Error:", membershipError?.message);
 
     if (!membership?.organization_id) {
       setLoading(false);
@@ -39,6 +41,7 @@ export default function HomeScreen() {
     }
 
     const orgId = membership.organization_id;
+    console.log("Organization ID:", orgId);
 
     const [orgRes, agreementsRes, ticketsRes] = await Promise.all([
       supabase
@@ -47,7 +50,7 @@ export default function HomeScreen() {
         .eq("id", orgId)
         .single(),
       supabase
-        .from("org_agreements")
+        .from("organization_agreements")
         .select("id", { count: "exact", head: true })
         .eq("organization_id", orgId)
         .eq("status", "active"),
@@ -55,7 +58,7 @@ export default function HomeScreen() {
         .from("tickets")
         .select("id", { count: "exact", head: true })
         .eq("organization_id", orgId)
-        .in("status", ["open", "in_progress"]),
+        .in("status", ["new", "sent_to_supplier", "reply_received", "in_progress"]),
     ]);
 
     if (orgRes.data) {

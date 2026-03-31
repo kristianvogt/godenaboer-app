@@ -13,23 +13,32 @@ import { useAuth } from "@/hooks/useAuth";
 
 interface Agreement {
   id: string;
-  vendor: string;
-  type: string;
   status: string;
-  start_date: string;
-  end_date: string | null;
+  joined_at: string;
+  agreement: {
+    title: string;
+    category: string | null;
+    status: string;
+    valid_from: string | null;
+    valid_to: string | null;
+    suppliers: { name: string } | null;
+  } | null;
 }
 
 const statusLabels: Record<string, string> = {
+  enrolled: "Påmeldt",
+  awaiting_inspection: "Venter befaring",
+  offer_received: "Tilbud mottatt",
   active: "Aktiv",
-  expired: "Utløpt",
-  cancelled: "Kansellert",
+  terminated: "Avsluttet",
 };
 
 const statusBadgeStyles: Record<string, { bg: string; text: string }> = {
+  enrolled: { bg: "#DBEAFE", text: "#1E40AF" },
+  awaiting_inspection: { bg: "#FEF3C7", text: "#92400E" },
+  offer_received: { bg: "#E0E7FF", text: "#3730A3" },
   active: { bg: "#DCFCE7", text: "#166534" },
-  expired: { bg: "#F3F4F6", text: "#4B5563" },
-  cancelled: { bg: "#FEE2E2", text: "#991B1B" },
+  terminated: { bg: "#F3F4F6", text: "#4B5563" },
 };
 
 const defaultBadge = { bg: "#F3F4F6", text: "#4B5563" };
@@ -44,11 +53,13 @@ export default function AgreementsScreen() {
   async function fetchAgreements() {
     if (!user) return;
 
-    const { data: membership } = await supabase
+    const { data: membership, error: membershipError } = await supabase
       .from("memberships")
       .select("organization_id")
       .eq("user_id", user.id)
       .single();
+
+    console.log("Agreements - Membership:", membership, "Error:", membershipError?.message);
 
     if (!membership?.organization_id) {
       setLoading(false);
@@ -56,13 +67,32 @@ export default function AgreementsScreen() {
     }
 
     const { data } = await supabase
-      .from("org_agreements")
-      .select("id, vendor, type, status, start_date, end_date")
+      .from("organization_agreements")
+      .select(`
+        id,
+        status,
+        joined_at,
+        agreement:agreements (
+          title,
+          category,
+          status,
+          valid_from,
+          valid_to,
+          suppliers:supplier_id (name)
+        )
+      `)
       .eq("organization_id", membership.organization_id)
-      .order("status", { ascending: true })
-      .order("start_date", { ascending: false });
+      .order("joined_at", { ascending: false });
 
-    setAgreements(data ?? []);
+    const mapped = (data ?? [])
+      .filter((d: any) => d.agreement !== null)
+      .map((d: any) => ({
+        id: d.id,
+        status: d.status,
+        joined_at: d.joined_at,
+        agreement: Array.isArray(d.agreement) ? d.agreement[0] : d.agreement,
+      }));
+    setAgreements(mapped as Agreement[]);
     setLoading(false);
   }
 
@@ -105,6 +135,7 @@ export default function AgreementsScreen() {
       }
       renderItem={({ item }) => {
         const badge = statusBadgeStyles[item.status] ?? defaultBadge;
+        const agr = item.agreement;
         return (
           <TouchableOpacity
             style={s.card}
@@ -113,8 +144,12 @@ export default function AgreementsScreen() {
           >
             <View style={s.cardRow}>
               <View style={{ flex: 1 }}>
-                <Text style={s.vendor}>{item.vendor}</Text>
-                <Text style={s.type}>{item.type}</Text>
+                <Text style={s.vendor}>
+                  {agr?.suppliers?.name ?? "Ukjent leverandør"}
+                </Text>
+                <Text style={s.type}>
+                  {agr?.title ?? agr?.category ?? "—"}
+                </Text>
               </View>
               <View style={[s.badge, { backgroundColor: badge.bg }]}>
                 <Text style={[s.badgeText, { color: badge.text }]}>
@@ -126,12 +161,16 @@ export default function AgreementsScreen() {
             {expanded === item.id && (
               <View style={s.details}>
                 <View style={s.detailRow}>
-                  <Text style={s.detailLabel}>Startdato</Text>
-                  <Text style={s.detailValue}>{formatDate(item.start_date)}</Text>
+                  <Text style={s.detailLabel}>Gyldig fra</Text>
+                  <Text style={s.detailValue}>{formatDate(agr?.valid_from ?? null)}</Text>
                 </View>
                 <View style={s.detailRow}>
-                  <Text style={s.detailLabel}>Sluttdato</Text>
-                  <Text style={s.detailValue}>{formatDate(item.end_date)}</Text>
+                  <Text style={s.detailLabel}>Gyldig til</Text>
+                  <Text style={s.detailValue}>{formatDate(agr?.valid_to ?? null)}</Text>
+                </View>
+                <View style={s.detailRow}>
+                  <Text style={s.detailLabel}>Påmeldt</Text>
+                  <Text style={s.detailValue}>{formatDate(item.joined_at)}</Text>
                 </View>
               </View>
             )}

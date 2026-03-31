@@ -51,11 +51,13 @@ export default function TicketsScreen() {
   async function fetchTickets() {
     if (!user) return;
 
-    const { data: membership } = await supabase
+    const { data: membership, error: membershipError } = await supabase
       .from("memberships")
       .select("organization_id")
       .eq("user_id", user.id)
       .single();
+
+    console.log("Tickets - Membership:", membership, "Error:", membershipError?.message);
 
     if (!membership?.organization_id) {
       setLoading(false);
