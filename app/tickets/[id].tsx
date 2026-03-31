@@ -143,6 +143,8 @@ export default function TicketDetailScreen() {
           title: ticket.subject,
           headerStyle: { backgroundColor: "#fff" },
           headerTintColor: "#1F2937",
+          headerBackVisible: true,
+          headerBackTitle: "Tilbake",
         }}
       />
       <KeyboardAvoidingView

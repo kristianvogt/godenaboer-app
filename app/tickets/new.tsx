@@ -119,7 +119,14 @@ export default function NewTicketScreen() {
         } = supabase.storage
           .from("ticket-images")
           .getPublicUrl(uploadData.path);
-        imageUrl = publicUrl;
+
+        // Bruk signed URL som fallback dersom bucketen ikke er public
+        const { data: signedData } = await supabase.storage
+          .from("ticket-images")
+          .createSignedUrl(uploadData.path, 60 * 60 * 24 * 365);
+
+        imageUrl = signedData?.signedUrl ?? publicUrl;
+        console.log("Bildeopplasting OK, imageUrl:", imageUrl);
       }
     }
 
