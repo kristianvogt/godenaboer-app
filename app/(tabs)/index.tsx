@@ -53,7 +53,7 @@ export default function HomeScreen() {
         .from("organization_agreements")
         .select("id", { count: "exact", head: true })
         .eq("organization_id", orgId)
-        .eq("status", "active"),
+        .in("status", ["enrolled", "awaiting_inspection", "offer_received", "active"]),
       supabase
         .from("tickets")
         .select("id", { count: "exact", head: true })

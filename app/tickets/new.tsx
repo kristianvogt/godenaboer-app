@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -20,6 +20,11 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
 import { decode } from "base64-arraybuffer";
 
+interface AgreementOption {
+  agreement_id: string;
+  label: string;
+}
+
 export default function NewTicketScreen() {
   const { user } = useAuth();
   const router = useRouter();
@@ -27,12 +32,91 @@ export default function NewTicketScreen() {
   const [description, setDescription] = useState("");
   const [image, setImage] = useState<ImagePicker.ImagePickerAsset | null>(null);
   const [loading, setLoading] = useState(false);
+  const [agreements, setAgreements] = useState<AgreementOption[]>([]);
+  const [selectedAgreement, setSelectedAgreement] = useState<AgreementOption | null>(null);
+  const [orgId, setOrgId] = useState<string | null>(null);
 
   const imagePickerOptions: ImagePicker.ImagePickerOptions = {
     mediaTypes: ["images"],
     quality: 0.7,
     base64: true,
   };
+
+  useEffect(() => {
+    async function fetchAgreements() {
+      if (!user) return;
+
+      const { data: membership } = await supabase
+        .from("memberships")
+        .select("organization_id")
+        .eq("user_id", user.id)
+        .single();
+
+      if (!membership?.organization_id) return;
+      setOrgId(membership.organization_id);
+
+      const { data } = await supabase
+        .from("organization_agreements")
+        .select(`
+          agreement_id,
+          status,
+          agreement:agreements (
+            title,
+            suppliers:supplier_id (name)
+          )
+        `)
+        .eq("organization_id", membership.organization_id)
+        .in("status", ["enrolled", "awaiting_inspection", "offer_received", "active"]);
+
+      const options: AgreementOption[] = (data ?? [])
+        .filter((d: any) => d.agreement !== null)
+        .map((d: any) => {
+          const agr = Array.isArray(d.agreement) ? d.agreement[0] : d.agreement;
+          const supplier = Array.isArray(agr?.suppliers) ? agr.suppliers[0] : agr?.suppliers;
+          const label = supplier?.name
+            ? `${supplier.name} — ${agr?.title ?? ""}`
+            : agr?.title ?? "Ukjent avtale";
+          return { agreement_id: d.agreement_id, label };
+        });
+
+      setAgreements(options);
+    }
+
+    fetchAgreements();
+  }, [user]);
+
+  function pickAgreement() {
+    const labels = ["Ingen spesifikk avtale", ...agreements.map((a) => a.label)];
+
+    if (Platform.OS === "ios") {
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          options: ["Avbryt", ...labels],
+          cancelButtonIndex: 0,
+        },
+        (buttonIndex) => {
+          if (buttonIndex === 1) {
+            setSelectedAgreement(null);
+          } else if (buttonIndex > 1) {
+            setSelectedAgreement(agreements[buttonIndex - 2]);
+          }
+        }
+      );
+    } else {
+      Alert.alert(
+        "Velg avtale",
+        "",
+        [
+          { text: "Ingen spesifikk avtale", onPress: () => setSelectedAgreement(null) },
+          ...agreements.map((a) => ({
+            text: a.label,
+            onPress: () => setSelectedAgreement(a),
+          })),
+          { text: "Avbryt", style: "cancel" as const },
+        ]
+      );
+    }
+  }
 
   async function launchCamera() {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
@@ -87,17 +171,22 @@ export default function NewTicketScreen() {
 
     setLoading(true);
 
-    const { data: membership } = await supabase
-      .from("memberships")
-      .select("organization_id")
-      .eq("user_id", user.id)
-      .single();
+    const organizationId = orgId;
+    if (!organizationId) {
+      const { data: membership } = await supabase
+        .from("memberships")
+        .select("organization_id")
+        .eq("user_id", user.id)
+        .single();
 
-    if (!membership?.organization_id) {
-      Alert.alert("Feil", "Ingen organisasjon tilknyttet din bruker.");
-      setLoading(false);
-      return;
+      if (!membership?.organization_id) {
+        Alert.alert("Feil", "Ingen organisasjon tilknyttet din bruker.");
+        setLoading(false);
+        return;
+      }
     }
+
+    const finalOrgId = organizationId!;
 
     let imageUrl: string | null = null;
 
@@ -132,14 +221,20 @@ export default function NewTicketScreen() {
       }
     }
 
+    const insertData: Record<string, unknown> = {
+      organization_id: finalOrgId,
+      created_by: user.id,
+      subject: subject.trim(),
+      status: "new",
+    };
+
+    if (selectedAgreement) {
+      insertData.agreement_id = selectedAgreement.agreement_id;
+    }
+
     const { data: newTicket, error } = await supabase
       .from("tickets")
-      .insert({
-        organization_id: membership.organization_id,
-        created_by: user.id,
-        subject: subject.trim(),
-        status: "new",
-      })
+      .insert(insertData)
       .select("id")
       .single();
 
@@ -213,6 +308,32 @@ export default function NewTicketScreen() {
             onChangeText={setSubject}
           />
 
+          {agreements.length > 0 && (
+            <View style={{ marginBottom: 16 }}>
+              <Text style={s.label}>Avtale</Text>
+              <TouchableOpacity style={s.agreementPicker} onPress={pickAgreement}>
+                <Text
+                  style={selectedAgreement ? s.agreementText : s.agreementPlaceholder}
+                  numberOfLines={1}
+                >
+                  {selectedAgreement?.label ?? "Velg avtale (valgfritt)"}
+                </Text>
+                <FontAwesome name="chevron-down" size={12} color="#9CA3AF" />
+              </TouchableOpacity>
+              {selectedAgreement && (
+                <TouchableOpacity
+                  style={s.chip}
+                  onPress={() => setSelectedAgreement(null)}
+                >
+                  <Text style={s.chipText} numberOfLines={1}>
+                    {selectedAgreement.label}
+                  </Text>
+                  <FontAwesome name="times" size={12} color="#6B7280" />
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
+
           <Text style={s.label}>Beskrivelse</Text>
           <TextInput
             style={[s.input, s.textArea]}
@@ -283,6 +404,44 @@ const s = StyleSheet.create({
   },
   textArea: {
     minHeight: 120,
+  },
+  agreementPicker: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    borderWidth: 1,
+    borderColor: "#D1D5DB",
+    borderRadius: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: "#fff",
+  },
+  agreementText: {
+    fontSize: 16,
+    color: "#1F2937",
+    flex: 1,
+    marginRight: 8,
+  },
+  agreementPlaceholder: {
+    fontSize: 16,
+    color: "#9CA3AF",
+    flex: 1,
+    marginRight: 8,
+  },
+  chip: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#EFF6FF",
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginTop: 8,
+    gap: 8,
+  },
+  chipText: {
+    fontSize: 14,
+    color: "#1E40AF",
+    flex: 1,
   },
   imagePicker: {
     borderWidth: 1,
