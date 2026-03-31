@@ -102,6 +102,7 @@ export default function NewTicketScreen() {
     let imageUrl: string | null = null;
 
     if (image?.base64) {
+      console.log("Bilde valgt, base64-lengde:", image.base64.length);
       const fileName = `${user.id}/${Date.now()}.jpg`;
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from("ticket-images")
@@ -111,6 +112,12 @@ export default function NewTicketScreen() {
 
       if (uploadError) {
         console.log("Bildeopplasting feilet:", uploadError.message);
+        Alert.alert(
+          "Bilde ikke lastet opp",
+          'Storage-bucket "ticket-images" finnes kanskje ikke. ' +
+          "Opprett den i Supabase Dashboard → Storage → New bucket → " +
+          '"ticket-images" (sett som Public).'
+        );
       }
 
       if (uploadData && !uploadError) {
@@ -120,13 +127,8 @@ export default function NewTicketScreen() {
           .from("ticket-images")
           .getPublicUrl(uploadData.path);
 
-        // Bruk signed URL som fallback dersom bucketen ikke er public
-        const { data: signedData } = await supabase.storage
-          .from("ticket-images")
-          .createSignedUrl(uploadData.path, 60 * 60 * 24 * 365);
-
-        imageUrl = signedData?.signedUrl ?? publicUrl;
-        console.log("Bildeopplasting OK, imageUrl:", imageUrl);
+        imageUrl = publicUrl;
+        console.log("Bildeopplasting OK, publicUrl:", publicUrl);
       }
     }
 
