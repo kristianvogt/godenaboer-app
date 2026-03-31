@@ -141,18 +141,40 @@ export default function NewTicketScreen() {
       return;
     }
 
-    if (description.trim() && newTicket) {
-      const { error: msgError } = await supabase
-        .from("ticket_messages")
-        .insert({
+    if (newTicket) {
+      const messagesToInsert: {
+        ticket_id: string;
+        content: string;
+        author_id: string;
+        is_internal: boolean;
+      }[] = [];
+
+      if (description.trim()) {
+        messagesToInsert.push({
           ticket_id: newTicket.id,
           content: description.trim(),
           author_id: user.id,
           is_internal: false,
         });
+      }
 
-      if (msgError) {
-        console.log("Melding-oppretting feilet:", msgError.message, msgError.details, msgError.hint);
+      if (imageUrl) {
+        messagesToInsert.push({
+          ticket_id: newTicket.id,
+          content: imageUrl,
+          author_id: user.id,
+          is_internal: false,
+        });
+      }
+
+      if (messagesToInsert.length > 0) {
+        const { error: msgError } = await supabase
+          .from("ticket_messages")
+          .insert(messagesToInsert);
+
+        if (msgError) {
+          console.log("Melding-oppretting feilet:", msgError.message, msgError.details, msgError.hint);
+        }
       }
     }
 

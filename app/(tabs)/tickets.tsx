@@ -16,24 +16,27 @@ import { useAuth } from "@/hooks/useAuth";
 
 interface Ticket {
   id: string;
-  ticket_id: string;
   subject: string;
   status: string;
   created_at: string;
 }
 
 const statusLabels: Record<string, string> = {
-  open: "Åpen",
+  new: "Ny",
+  sent_to_supplier: "Sendt til leverandør",
+  reply_received: "Svar mottatt",
   in_progress: "Under arbeid",
   resolved: "Løst",
-  closed: "Lukket",
+  rejected: "Avvist",
 };
 
 const statusBadgeStyles: Record<string, { bg: string; text: string }> = {
-  open: { bg: "#DBEAFE", text: "#1E40AF" },
+  new: { bg: "#DBEAFE", text: "#1E40AF" },
+  sent_to_supplier: { bg: "#FEF3C7", text: "#92400E" },
+  reply_received: { bg: "#E0E7FF", text: "#3730A3" },
   in_progress: { bg: "#FEF3C7", text: "#92400E" },
   resolved: { bg: "#DCFCE7", text: "#166534" },
-  closed: { bg: "#F3F4F6", text: "#4B5563" },
+  rejected: { bg: "#FEE2E2", text: "#991B1B" },
 };
 
 const defaultBadge = { bg: "#F3F4F6", text: "#4B5563" };
@@ -61,7 +64,7 @@ export default function TicketsScreen() {
 
     const { data } = await supabase
       .from("tickets")
-      .select("id, ticket_id, subject, status, created_at")
+      .select("id, subject, status, created_at")
       .eq("organization_id", membership.organization_id)
       .order("created_at", { ascending: false });
 
@@ -112,14 +115,13 @@ export default function TicketsScreen() {
               activeOpacity={0.7}
             >
               <View style={s.cardHeader}>
-                <Text style={s.ticketId}>{item.ticket_id}</Text>
+                <Text style={s.ticketTitle}>{item.subject}</Text>
                 <View style={[s.badge, { backgroundColor: badge.bg }]}>
                   <Text style={[s.badgeText, { color: badge.text }]}>
                     {statusLabels[item.status] ?? item.status}
                   </Text>
                 </View>
               </View>
-              <Text style={s.ticketTitle}>{item.subject}</Text>
               <Text style={s.ticketDate}>
                 {new Date(item.created_at).toLocaleDateString("nb-NO")}
               </Text>
@@ -168,11 +170,6 @@ const s = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     marginBottom: 4,
-  },
-  ticketId: {
-    fontSize: 12,
-    fontFamily: Platform.select({ ios: "Menlo", android: "monospace" }),
-    color: "#6B7280",
   },
   badge: {
     paddingHorizontal: 12,

@@ -45,10 +45,13 @@ export async function registerForPushNotifications(userId: string) {
     })
   ).data;
 
-  await supabase
-    .from("profiles")
-    .update({ push_token: token })
-    .eq("id", userId);
+  const { error } = await supabase.auth.updateUser({
+    data: { expo_push_token: token },
+  });
+
+  if (error) {
+    console.log("Kunne ikke lagre push-token:", error.message);
+  }
 
   return token;
 }

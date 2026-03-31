@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  Image,
   StyleSheet,
 } from "react-native";
 import { useLocalSearchParams, Stack } from "expo-router";
@@ -17,7 +18,6 @@ import { useAuth } from "@/hooks/useAuth";
 
 interface TicketDetail {
   id: string;
-  ticket_id: string;
   subject: string;
   status: string;
   created_at: string;
@@ -32,11 +32,18 @@ interface Message {
 }
 
 const statusLabels: Record<string, string> = {
-  open: "Åpen",
+  new: "Ny",
+  sent_to_supplier: "Sendt til leverandør",
+  reply_received: "Svar mottatt",
   in_progress: "Under arbeid",
   resolved: "Løst",
-  closed: "Lukket",
+  rejected: "Avvist",
 };
+
+function isImageUrl(text: string): boolean {
+  return /^https?:\/\/.+\.(jpg|jpeg|png|gif|webp)(\?.*)?$/i.test(text) ||
+    text.includes("supabase.co/storage");
+}
 
 export default function TicketDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -51,7 +58,7 @@ export default function TicketDetailScreen() {
   async function fetchTicket() {
     const { data } = await supabase
       .from("tickets")
-      .select("id, ticket_id, subject, status, created_at")
+      .select("id, subject, status, created_at")
       .eq("id", id)
       .single();
 
@@ -133,7 +140,7 @@ export default function TicketDetailScreen() {
     <>
       <Stack.Screen
         options={{
-          title: ticket.ticket_id,
+          title: ticket.subject,
           headerStyle: { backgroundColor: "#fff" },
           headerTintColor: "#1F2937",
         }}
@@ -154,12 +161,11 @@ export default function TicketDetailScreen() {
             <View style={{ marginBottom: 16 }}>
               <View style={s.detailCard}>
                 <View style={s.detailHeader}>
-                  <Text style={s.ticketIdText}>{ticket.ticket_id}</Text>
+                  <Text style={s.ticketTitle}>{ticket.subject}</Text>
                   <Text style={s.statusText}>
                     {statusLabels[ticket.status] ?? ticket.status}
                   </Text>
                 </View>
-                <Text style={s.ticketTitle}>{ticket.subject}</Text>
                 <Text style={s.createdAt}>
                   Opprettet{" "}
                   {new Date(ticket.created_at).toLocaleDateString("nb-NO")}
@@ -191,9 +197,17 @@ export default function TicketDetailScreen() {
                   {!isOwn && item.profiles?.full_name && (
                     <Text style={s.msgSender}>{item.profiles.full_name}</Text>
                   )}
-                  <Text style={isOwn ? s.msgTextOwn : s.msgTextOther}>
-                    {item.content}
-                  </Text>
+                  {isImageUrl(item.content) ? (
+                    <Image
+                      source={{ uri: item.content }}
+                      style={s.msgImage}
+                      resizeMode="cover"
+                    />
+                  ) : (
+                    <Text style={isOwn ? s.msgTextOwn : s.msgTextOther}>
+                      {item.content}
+                    </Text>
+                  )}
                 </View>
                 <Text
                   style={[s.msgTime, isOwn && { textAlign: "right" }]}
@@ -263,10 +277,6 @@ const s = StyleSheet.create({
     justifyContent: "space-between",
     marginBottom: 8,
   },
-  ticketIdText: {
-    fontSize: 12,
-    color: "#6B7280",
-  },
   statusText: {
     fontSize: 12,
     fontWeight: "500",
@@ -321,6 +331,11 @@ const s = StyleSheet.create({
     fontWeight: "500",
     color: "#3B82F6",
     marginBottom: 4,
+  },
+  msgImage: {
+    width: 200,
+    height: 150,
+    borderRadius: 8,
   },
   msgTextOwn: {
     fontSize: 14,
