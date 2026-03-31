@@ -11,7 +11,7 @@ import {
   Image,
   StyleSheet,
 } from "react-native";
-import { useLocalSearchParams, Stack } from "expo-router";
+import { useLocalSearchParams, useRouter, Stack } from "expo-router";
 import FontAwesome from "@expo/vector-icons/FontAwesome";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
@@ -47,6 +47,7 @@ function isImageUrl(text: string): boolean {
 
 export default function TicketDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const router = useRouter();
   const { user } = useAuth();
   const [ticket, setTicket] = useState<TicketDetail | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -141,10 +142,11 @@ export default function TicketDetailScreen() {
       <Stack.Screen
         options={{
           title: ticket.subject,
-          headerStyle: { backgroundColor: "#fff" },
-          headerTintColor: "#1F2937",
-          headerBackVisible: true,
-          headerBackTitle: "Tilbake",
+          headerLeft: () => (
+            <TouchableOpacity onPress={() => router.back()} style={{ paddingLeft: 8 }}>
+              <FontAwesome name="chevron-left" size={20} color="#1F2937" />
+            </TouchableOpacity>
+          ),
         }}
       />
       <KeyboardAvoidingView
