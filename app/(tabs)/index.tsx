@@ -92,86 +92,97 @@ export default function HomeScreen() {
   async function fetchData() {
     if (!user) return;
 
-    const { data: membership } = await supabase
-      .from("memberships")
-      .select("organization_id, role")
-      .eq("user_id", user.id)
-      .single();
+    console.log("[Home] fetchData start, user:", user?.id);
 
-    if (!membership?.organization_id) {
+    try {
+      const { data: membership, error: membershipError } = await supabase
+        .from("memberships")
+        .select("organization_id, role")
+        .eq("user_id", user.id)
+        .single();
+
+      console.log("[Home] membership result:", membership, membershipError?.message);
+
+      if (!membership?.organization_id) {
+        setLoading(false);
+        return;
+      }
+
+      const orgId = membership.organization_id;
+
+      const [orgRes, agreementsRes, openTicketsRes, overdueRes, recentRes, upcomingRes] =
+        await Promise.all([
+          supabase
+            .from("organizations")
+            .select("name")
+            .eq("id", orgId)
+            .single(),
+          supabase
+            .from("organization_agreements")
+            .select("id", { count: "exact", head: true })
+            .eq("organization_id", orgId)
+            .in("status", ["enrolled", "awaiting_inspection", "offer_received", "active"]),
+          supabase
+            .from("tickets")
+            .select("id", { count: "exact", head: true })
+            .eq("organization_id", orgId)
+            .in("status", ["new", "sent_to_supplier", "reply_received", "in_progress"]),
+          supabase
+            .from("tickets")
+            .select("id", { count: "exact", head: true })
+            .eq("organization_id", orgId)
+            .eq("status", "new")
+            .lt("created_at", new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()),
+          supabase
+            .from("tickets")
+            .select("id, subject, status, created_at, profiles:created_by(full_name)")
+            .eq("organization_id", orgId)
+            .order("created_at", { ascending: false })
+            .limit(3),
+          supabase
+            .from("organization_agreements")
+            .select(`
+              id,
+              status,
+              agreement:agreements (title, suppliers:supplier_id (name))
+            `)
+            .eq("organization_id", orgId)
+            .in("status", ["active", "enrolled", "awaiting_inspection", "offer_received"])
+            .order("joined_at", { ascending: false })
+            .limit(3),
+        ]);
+
+      console.log("[Home] org result:", orgRes.data, orgRes.error?.message);
+
+      if (orgRes.data) {
+        setData({
+          name: orgRes.data.name,
+          role: membership.role ?? "member",
+          open_tickets: openTicketsRes.count ?? 0,
+          overdue_tickets: overdueRes.count ?? 0,
+          active_agreements: agreementsRes.count ?? 0,
+        });
+      }
+
+      setRecentTickets(
+        (recentRes.data ?? []).map((t: any) => ({
+          ...t,
+          profiles: Array.isArray(t.profiles) ? t.profiles[0] : t.profiles,
+        }))
+      );
+
+      setRecentAgreements(
+        (upcomingRes.data ?? []).map((a: any) => ({
+          ...a,
+          agreement: Array.isArray(a.agreement) ? a.agreement[0] : a.agreement,
+        }))
+      );
+
       setLoading(false);
-      return;
+    } catch (err) {
+      console.error("[Home] fetchData error:", err);
+      setLoading(false);
     }
-
-    const orgId = membership.organization_id;
-
-    const [orgRes, agreementsRes, openTicketsRes, overdueRes, recentRes, upcomingRes] =
-      await Promise.all([
-        supabase
-          .from("organizations")
-          .select("name")
-          .eq("id", orgId)
-          .single(),
-        supabase
-          .from("organization_agreements")
-          .select("id", { count: "exact", head: true })
-          .eq("organization_id", orgId)
-          .in("status", ["enrolled", "awaiting_inspection", "offer_received", "active"]),
-        supabase
-          .from("tickets")
-          .select("id", { count: "exact", head: true })
-          .eq("organization_id", orgId)
-          .in("status", ["new", "sent_to_supplier", "reply_received", "in_progress"]),
-        supabase
-          .from("tickets")
-          .select("id", { count: "exact", head: true })
-          .eq("organization_id", orgId)
-          .eq("status", "new")
-          .lt("created_at", new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()),
-        supabase
-          .from("tickets")
-          .select("id, subject, status, created_at, profiles:created_by(full_name)")
-          .eq("organization_id", orgId)
-          .order("created_at", { ascending: false })
-          .limit(3),
-        supabase
-          .from("organization_agreements")
-          .select(`
-            id,
-            status,
-            agreement:agreements (title, suppliers:supplier_id (name))
-          `)
-          .eq("organization_id", orgId)
-          .in("status", ["active", "enrolled", "awaiting_inspection", "offer_received"])
-          .order("joined_at", { ascending: false })
-          .limit(3),
-      ]);
-
-    if (orgRes.data) {
-      setData({
-        name: orgRes.data.name,
-        role: membership.role ?? "member",
-        open_tickets: openTicketsRes.count ?? 0,
-        overdue_tickets: overdueRes.count ?? 0,
-        active_agreements: agreementsRes.count ?? 0,
-      });
-    }
-
-    setRecentTickets(
-      (recentRes.data ?? []).map((t: any) => ({
-        ...t,
-        profiles: Array.isArray(t.profiles) ? t.profiles[0] : t.profiles,
-      }))
-    );
-
-    setRecentAgreements(
-      (upcomingRes.data ?? []).map((a: any) => ({
-        ...a,
-        agreement: Array.isArray(a.agreement) ? a.agreement[0] : a.agreement,
-      }))
-    );
-
-    setLoading(false);
   }
 
   useFocusEffect(

@@ -22,13 +22,22 @@ export default function RootLayout() {
     SplashScreen.hideAsync();
 
     const inAuthGroup = segments[0] === "login";
+    const inSupplierGroup = segments[0] === "(supplier)";
+    const inTabsGroup = segments[0] === "(tabs)";
+
+    console.log("[Layout] segments:", segments, "inAuthGroup:", inAuthGroup, "inTabsGroup:", inTabsGroup, "inSupplierGroup:", inSupplierGroup);
 
     if (!session && !inAuthGroup) {
       router.replace("/login");
     } else if (session && inAuthGroup) {
       router.replace("/(tabs)");
+    } else if (session && !inTabsGroup && !inSupplierGroup) {
+      router.replace("/(tabs)");
+    } else if (session && inSupplierGroup && !supplierLoading && !isSupplierUser) {
+      // Ikke en supplier-bruker — send til tabs
+      router.replace("/(tabs)");
     }
-  }, [session, isReady, segments]);
+  }, [session, isReady, segments, supplierLoading, isSupplierUser]);
 
   useEffect(() => {
     console.log("[Layout supplier] isReady:", isReady, "session:", !!session, "supplierLoading:", supplierLoading, "isSupplierUser:", isSupplierUser);
