@@ -2,44 +2,66 @@ import { useEffect, useState, useCallback } from "react";
 import {
   View,
   Text,
-  FlatList,
+  SectionList,
   RefreshControl,
   ActivityIndicator,
   TouchableOpacity,
   StyleSheet,
-  Platform,
 } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
 import FontAwesome from "@expo/vector-icons/FontAwesome";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
+import { colors, fontSize, spacing, radius } from "@/lib/theme";
 
 interface Ticket {
   id: string;
   subject: string;
   status: string;
   created_at: string;
+  profiles: { full_name: string } | null;
 }
 
 const statusLabels: Record<string, string> = {
   new: "Ny",
-  sent_to_supplier: "Sendt til leverandør",
+  sent_to_supplier: "Sendt",
   reply_received: "Svar mottatt",
-  in_progress: "Under arbeid",
+  in_progress: "Under beh.",
   resolved: "Løst",
   rejected: "Avvist",
 };
 
 const statusBadgeStyles: Record<string, { bg: string; text: string }> = {
-  new: { bg: "#DBEAFE", text: "#1E40AF" },
-  sent_to_supplier: { bg: "#FEF3C7", text: "#92400E" },
+  new: { bg: colors.warningBg, text: colors.warning },
+  sent_to_supplier: { bg: colors.primaryBg, text: colors.primary },
   reply_received: { bg: "#E0E7FF", text: "#3730A3" },
-  in_progress: { bg: "#FEF3C7", text: "#92400E" },
-  resolved: { bg: "#DCFCE7", text: "#166534" },
-  rejected: { bg: "#FEE2E2", text: "#991B1B" },
+  in_progress: { bg: colors.primaryBg, text: colors.primary },
+  resolved: { bg: colors.successBg, text: colors.success },
+  rejected: { bg: colors.dangerBg, text: colors.danger },
 };
 
 const defaultBadge = { bg: "#F3F4F6", text: "#4B5563" };
+
+const avatarColors = [
+  "#2563EB", "#7C3AED", "#DB2777", "#EA580C", "#059669", "#0891B2",
+];
+
+function getAvatarColor(name: string) {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return avatarColors[Math.abs(hash) % avatarColors.length];
+}
+
+function getInitials(name: string) {
+  return name
+    .split(" ")
+    .map((p) => p[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
+}
 
 export default function TicketsScreen() {
   const { user } = useAuth();
@@ -57,20 +79,30 @@ export default function TicketsScreen() {
       .eq("user_id", user.id)
       .single();
 
-    console.log("Tickets - Membership:", membership, "Error:", membershipError?.message);
+    console.log("[Tickets] Membership:", membership, "Error:", membershipError?.message);
 
     if (!membership?.organization_id) {
+      console.log("[Tickets] No organization_id found, aborting fetch");
       setLoading(false);
       return;
     }
 
-    const { data } = await supabase
+    console.log("[Tickets] Fetching tickets for org:", membership.organization_id);
+
+    const { data, error: ticketsError } = await supabase
       .from("tickets")
-      .select("id, subject, status, created_at")
+      .select("id, subject, status, created_at, profiles:created_by(full_name)")
       .eq("organization_id", membership.organization_id)
       .order("created_at", { ascending: false });
 
-    setTickets(data ?? []);
+    console.log("[Tickets] Response:", { count: data?.length, error: ticketsError?.message, data });
+
+    const mapped = (data ?? []).map((t: any) => ({
+      ...t,
+      profiles: Array.isArray(t.profiles) ? t.profiles[0] : t.profiles,
+    }));
+
+    setTickets(mapped);
     setLoading(false);
   }
 
@@ -86,47 +118,74 @@ export default function TicketsScreen() {
     setRefreshing(false);
   }
 
+  const openStatuses = ["new", "sent_to_supplier", "reply_received", "in_progress"];
+  const openTickets = tickets.filter((t) => openStatuses.includes(t.status));
+  const resolvedTickets = tickets.filter((t) => !openStatuses.includes(t.status));
+
+  const sections = [
+    ...(openTickets.length > 0
+      ? [{ title: `Åpne · ${openTickets.length}`, data: openTickets }]
+      : []),
+    ...(resolvedTickets.length > 0
+      ? [{ title: `Løste · ${resolvedTickets.length}`, data: resolvedTickets }]
+      : []),
+  ];
+
   if (loading) {
     return (
       <View style={s.centered}>
-        <ActivityIndicator size="large" color="#1F2937" />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
 
   return (
     <View style={s.screen}>
-      <FlatList
-        contentContainerStyle={{ padding: 20 }}
-        data={tickets}
+      <SectionList
+        contentContainerStyle={{ padding: spacing.xl }}
+        sections={sections}
         keyExtractor={(item) => item.id}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
         ListEmptyComponent={
           <View style={{ alignItems: "center", paddingTop: 80 }}>
-            <Text style={s.emptyText}>Ingen tickets funnet.</Text>
+            <Text style={s.emptyText}>Ingen saker funnet.</Text>
           </View>
         }
+        renderSectionHeader={({ section: { title } }) => (
+          <Text style={s.sectionHeader}>{title}</Text>
+        )}
         renderItem={({ item }) => {
           const badge = statusBadgeStyles[item.status] ?? defaultBadge;
+          const name = item.profiles?.full_name ?? "Ukjent";
+          const avatarBg = getAvatarColor(name);
+          const initials = getInitials(name);
           return (
             <TouchableOpacity
               style={s.card}
               onPress={() => router.push(`/tickets/${item.id}`)}
               activeOpacity={0.7}
             >
-              <View style={s.cardHeader}>
-                <Text style={s.ticketTitle}>{item.subject}</Text>
-                <View style={[s.badge, { backgroundColor: badge.bg }]}>
-                  <Text style={[s.badgeText, { color: badge.text }]}>
-                    {statusLabels[item.status] ?? item.status}
-                  </Text>
-                </View>
+              <View style={[s.avatar, { backgroundColor: avatarBg }]}>
+                <Text style={s.avatarText}>{initials}</Text>
               </View>
-              <Text style={s.ticketDate}>
-                {new Date(item.created_at).toLocaleDateString("nb-NO")}
-              </Text>
+              <View style={s.cardContent}>
+                <View style={s.cardHeader}>
+                  <Text style={s.ticketTitle} numberOfLines={1}>
+                    {item.subject}
+                  </Text>
+                  <View style={[s.badge, { backgroundColor: badge.bg }]}>
+                    <Text style={[s.badgeText, { color: badge.text }]}>
+                      {statusLabels[item.status] ?? item.status}
+                    </Text>
+                  </View>
+                </View>
+                <Text style={s.ticketMeta}>
+                  {name} ·{" "}
+                  {new Date(item.created_at).toLocaleDateString("nb-NO")}
+                </Text>
+              </View>
             </TouchableOpacity>
           );
         }}
@@ -136,7 +195,8 @@ export default function TicketsScreen() {
         style={s.fab}
         onPress={() => router.push("/tickets/new")}
       >
-        <FontAwesome name="plus" size={20} color="#fff" />
+        <FontAwesome name="plus" size={18} color="#fff" />
+        <Text style={s.fabText}>Ny henvendelse</Text>
       </TouchableOpacity>
     </View>
   );
@@ -145,67 +205,101 @@ export default function TicketsScreen() {
 const s = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: "#F9FAFB",
+    backgroundColor: colors.background,
   },
   centered: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#F9FAFB",
+    backgroundColor: colors.background,
   },
   emptyText: {
-    color: "#6B7280",
+    color: colors.muted,
+  },
+  sectionHeader: {
+    fontSize: fontSize.md,
+    fontWeight: "700",
+    color: colors.muted,
+    marginBottom: spacing.sm,
+    marginTop: spacing.lg,
   },
   card: {
-    backgroundColor: "#fff",
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
+    backgroundColor: colors.card,
+    borderRadius: radius.md,
+    padding: spacing.lg,
+    marginBottom: spacing.sm,
+    flexDirection: "row",
+    alignItems: "center",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
     shadowRadius: 2,
     elevation: 1,
   },
+  avatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: spacing.md,
+  },
+  avatarText: {
+    color: "#fff",
+    fontSize: fontSize.sm,
+    fontWeight: "700",
+  },
+  cardContent: {
+    flex: 1,
+  },
   cardHeader: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 4,
+    marginBottom: 2,
   },
   badge: {
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: radius.full,
+    marginLeft: spacing.sm,
   },
   badgeText: {
-    fontSize: 12,
-    fontWeight: "500",
+    fontSize: fontSize.xs,
+    fontWeight: "600",
   },
   ticketTitle: {
-    fontSize: 16,
+    fontSize: fontSize.md,
     fontWeight: "600",
-    color: "#1F2937",
+    color: colors.text,
+    flex: 1,
   },
-  ticketDate: {
-    fontSize: 12,
-    color: "#6B7280",
-    marginTop: 4,
+  ticketMeta: {
+    fontSize: fontSize.sm,
+    color: colors.muted,
+    marginTop: 2,
   },
   fab: {
     position: "absolute",
     bottom: 24,
-    right: 24,
-    backgroundColor: "#1F2937",
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    right: 20,
+    left: 20,
+    backgroundColor: colors.primary,
+    height: 52,
+    borderRadius: radius.lg,
+    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
+    gap: spacing.sm,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
     shadowRadius: 6,
     elevation: 6,
+  },
+  fabText: {
+    color: "#fff",
+    fontSize: fontSize.lg,
+    fontWeight: "600",
   },
 });

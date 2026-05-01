@@ -1,39 +1,102 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import {
   View,
   Text,
   ScrollView,
   RefreshControl,
   ActivityIndicator,
+  TouchableOpacity,
   StyleSheet,
 } from "react-native";
+import { useRouter, useFocusEffect } from "expo-router";
+import FontAwesome from "@expo/vector-icons/FontAwesome";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
+import { colors, fontSize, spacing, radius } from "@/lib/theme";
 
 interface OrgData {
   name: string;
-  address: string;
-  unit_count: number;
-  active_agreements: number;
+  role: string;
   open_tickets: number;
+  overdue_tickets: number;
+  active_agreements: number;
 }
+
+interface RecentTicket {
+  id: string;
+  subject: string;
+  status: string;
+  created_at: string;
+  profiles: { full_name: string } | null;
+}
+
+interface RecentAgreement {
+  id: string;
+  status: string;
+  agreement: {
+    title: string;
+    suppliers: { name: string } | null;
+  } | null;
+}
+
+const agreementStatusLabels: Record<string, string> = {
+  enrolled: "Påmeldt",
+  awaiting_inspection: "Venter befaring",
+  offer_received: "Tilbud mottatt",
+  active: "Aktiv",
+  terminated: "Avsluttet",
+};
+
+const agreementBadgeStyles: Record<string, { bg: string; text: string }> = {
+  enrolled: { bg: colors.primaryBg, text: colors.primary },
+  awaiting_inspection: { bg: colors.warningBg, text: colors.warning },
+  offer_received: { bg: "#E0E7FF", text: "#3730A3" },
+  active: { bg: colors.successBg, text: colors.success },
+  terminated: { bg: "#F3F4F6", text: "#4B5563" },
+};
+
+const statusLabels: Record<string, string> = {
+  new: "Ny",
+  sent_to_supplier: "Sendt",
+  reply_received: "Svar",
+  in_progress: "Under beh.",
+  resolved: "Løst",
+  rejected: "Avvist",
+};
+
+const statusBadgeStyles: Record<string, { bg: string; text: string }> = {
+  new: { bg: colors.warningBg, text: colors.warning },
+  sent_to_supplier: { bg: colors.primaryBg, text: colors.primary },
+  reply_received: { bg: "#E0E7FF", text: "#3730A3" },
+  in_progress: { bg: colors.primaryBg, text: colors.primary },
+  resolved: { bg: colors.successBg, text: colors.success },
+  rejected: { bg: colors.dangerBg, text: colors.danger },
+};
+
+const roleLabels: Record<string, string> = {
+  admin: "Styre",
+  board: "Styre",
+  member: "Medlem",
+  manager: "Forvalter",
+};
 
 export default function HomeScreen() {
   const { user } = useAuth();
+  const router = useRouter();
   const [data, setData] = useState<OrgData | null>(null);
+  const [recentTickets, setRecentTickets] = useState<RecentTicket[]>([]);
+  const [recentAgreements, setRecentAgreements] = useState<RecentAgreement[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   async function fetchData() {
     if (!user) return;
 
-    const { data: membership, error: membershipError } = await supabase
+    const { data: membership } = await supabase
       .from("memberships")
-      .select("organization_id")
+      .select("organization_id, role")
       .eq("user_id", user.id)
       .single();
-
-    console.log("Membership:", membership, "Error:", membershipError?.message);
 
     if (!membership?.organization_id) {
       setLoading(false);
@@ -41,42 +104,81 @@ export default function HomeScreen() {
     }
 
     const orgId = membership.organization_id;
-    console.log("Organization ID:", orgId);
 
-    const [orgRes, agreementsRes, ticketsRes] = await Promise.all([
-      supabase
-        .from("organizations")
-        .select("name, address, unit_count")
-        .eq("id", orgId)
-        .single(),
-      supabase
-        .from("organization_agreements")
-        .select("id", { count: "exact", head: true })
-        .eq("organization_id", orgId)
-        .in("status", ["enrolled", "awaiting_inspection", "offer_received", "active"]),
-      supabase
-        .from("tickets")
-        .select("id", { count: "exact", head: true })
-        .eq("organization_id", orgId)
-        .in("status", ["new", "sent_to_supplier", "reply_received", "in_progress"]),
-    ]);
+    const [orgRes, agreementsRes, openTicketsRes, overdueRes, recentRes, upcomingRes] =
+      await Promise.all([
+        supabase
+          .from("organizations")
+          .select("name")
+          .eq("id", orgId)
+          .single(),
+        supabase
+          .from("organization_agreements")
+          .select("id", { count: "exact", head: true })
+          .eq("organization_id", orgId)
+          .in("status", ["enrolled", "awaiting_inspection", "offer_received", "active"]),
+        supabase
+          .from("tickets")
+          .select("id", { count: "exact", head: true })
+          .eq("organization_id", orgId)
+          .in("status", ["new", "sent_to_supplier", "reply_received", "in_progress"]),
+        supabase
+          .from("tickets")
+          .select("id", { count: "exact", head: true })
+          .eq("organization_id", orgId)
+          .eq("status", "new")
+          .lt("created_at", new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()),
+        supabase
+          .from("tickets")
+          .select("id, subject, status, created_at, profiles:created_by(full_name)")
+          .eq("organization_id", orgId)
+          .order("created_at", { ascending: false })
+          .limit(3),
+        supabase
+          .from("organization_agreements")
+          .select(`
+            id,
+            status,
+            agreement:agreements (title, suppliers:supplier_id (name))
+          `)
+          .eq("organization_id", orgId)
+          .in("status", ["active", "enrolled", "awaiting_inspection", "offer_received"])
+          .order("joined_at", { ascending: false })
+          .limit(3),
+      ]);
 
     if (orgRes.data) {
       setData({
         name: orgRes.data.name,
-        address: orgRes.data.address,
-        unit_count: orgRes.data.unit_count,
+        role: membership.role ?? "member",
+        open_tickets: openTicketsRes.count ?? 0,
+        overdue_tickets: overdueRes.count ?? 0,
         active_agreements: agreementsRes.count ?? 0,
-        open_tickets: ticketsRes.count ?? 0,
       });
     }
+
+    setRecentTickets(
+      (recentRes.data ?? []).map((t: any) => ({
+        ...t,
+        profiles: Array.isArray(t.profiles) ? t.profiles[0] : t.profiles,
+      }))
+    );
+
+    setRecentAgreements(
+      (upcomingRes.data ?? []).map((a: any) => ({
+        ...a,
+        agreement: Array.isArray(a.agreement) ? a.agreement[0] : a.agreement,
+      }))
+    );
 
     setLoading(false);
   }
 
-  useEffect(() => {
-    fetchData();
-  }, [user]);
+  useFocusEffect(
+    useCallback(() => {
+      fetchData();
+    }, [user])
+  );
 
   async function onRefresh() {
     setRefreshing(true);
@@ -87,14 +189,14 @@ export default function HomeScreen() {
   if (loading) {
     return (
       <View style={s.centered}>
-        <ActivityIndicator size="large" color="#1F2937" />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
 
   if (!data) {
     return (
-      <View style={[s.centered, { paddingHorizontal: 32 }]}>
+      <View style={[s.centered, { paddingHorizontal: spacing.xxxl }]}>
         <Text style={s.emptyText}>
           Ingen organisasjon tilknyttet din bruker.
         </Text>
@@ -110,26 +212,109 @@ export default function HomeScreen() {
       }
     >
       <View style={s.header}>
-        <Text style={s.name}>{data.name}</Text>
-        <Text style={s.address}>{data.address}</Text>
+        <Text style={s.heroTitle}>Gode Naboer</Text>
+        <Text style={s.subtitle}>
+          {roleLabels[data.role] ?? data.role} · {data.name}
+        </Text>
       </View>
 
       <View style={s.content}>
-        <View style={s.card}>
-          <Text style={s.cardLabel}>Enheter</Text>
-          <Text style={s.cardValueLarge}>{data.unit_count}</Text>
+        {/* Stats row */}
+        <View style={s.statsRow}>
+          <View style={[s.statCard, { backgroundColor: colors.primaryBg }]}>
+            <Text style={[s.statValue, { color: colors.primary }]}>
+              {data.open_tickets}
+            </Text>
+            <Text style={[s.statLabel, { color: colors.primary }]}>
+              Åpne saker
+            </Text>
+          </View>
+          <View style={[s.statCard, { backgroundColor: colors.warningBg }]}>
+            <Text style={[s.statValue, { color: colors.warning }]}>
+              {data.overdue_tickets}
+            </Text>
+            <Text style={[s.statLabel, { color: colors.warning }]}>
+              Forfalt
+            </Text>
+          </View>
+          <View style={[s.statCard, { backgroundColor: colors.successBg }]}>
+            <Text style={[s.statValue, { color: colors.success }]}>
+              {data.active_agreements}
+            </Text>
+            <Text style={[s.statLabel, { color: colors.success }]}>
+              Aktive avtaler
+            </Text>
+          </View>
         </View>
 
-        <View style={s.row}>
-          <View style={[s.card, s.halfCard]}>
-            <Text style={s.cardLabel}>Aktive avtaler</Text>
-            <Text style={s.cardValueAccent}>{data.active_agreements}</Text>
-          </View>
+        {/* Recent tickets */}
+        <View style={s.section}>
+          <Text style={s.sectionTitle}>Siste henvendelser</Text>
+          {recentTickets.length === 0 ? (
+            <Text style={s.emptySection}>Ingen saker ennå.</Text>
+          ) : (
+            recentTickets.map((ticket) => {
+              const badge = statusBadgeStyles[ticket.status] ?? { bg: "#F3F4F6", text: "#4B5563" };
+              return (
+                <TouchableOpacity
+                  key={ticket.id}
+                  style={s.listCard}
+                  onPress={() => router.push(`/tickets/${ticket.id}`)}
+                  activeOpacity={0.7}
+                >
+                  <View style={s.listIconWrap}>
+                    <FontAwesome name="commenting-o" size={18} color={colors.primary} />
+                  </View>
+                  <View style={s.listContent}>
+                    <Text style={s.listTitle} numberOfLines={1}>
+                      {ticket.subject}
+                    </Text>
+                    <Text style={s.listMeta}>
+                      {ticket.profiles?.full_name ?? "Ukjent"} ·{" "}
+                      {new Date(ticket.created_at).toLocaleDateString("nb-NO")}
+                    </Text>
+                  </View>
+                  <View style={[s.badge, { backgroundColor: badge.bg }]}>
+                    <Text style={[s.badgeText, { color: badge.text }]}>
+                      {statusLabels[ticket.status] ?? ticket.status}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              );
+            })
+          )}
+        </View>
 
-          <View style={[s.card, s.halfCard]}>
-            <Text style={s.cardLabel}>Åpne tickets</Text>
-            <Text style={s.cardValueAccent}>{data.open_tickets}</Text>
-          </View>
+        {/* Agreements */}
+        <View style={s.section}>
+          <Text style={s.sectionTitle}>Avtaler</Text>
+          {recentAgreements.length === 0 ? (
+            <Text style={s.emptySection}>Ingen avtaler.</Text>
+          ) : (
+            recentAgreements.map((a) => {
+              const aBadge = agreementBadgeStyles[a.status] ?? { bg: "#F3F4F6", text: "#4B5563" };
+              return (
+                <View key={a.id} style={s.listCard}>
+                  <View style={s.listIconWrap}>
+                    <FontAwesome name="file-text-o" size={18} color={colors.primary} />
+                  </View>
+                  <View style={s.listContent}>
+                    <Text style={s.listTitle} numberOfLines={1}>
+                      {a.agreement?.title ?? "Ukjent avtale"}
+                    </Text>
+                    <Text style={s.listMeta}>
+                      {a.agreement?.suppliers?.name ?? "Ukjent leverandør"}
+                    </Text>
+                  </View>
+                  <View style={[s.badge, { backgroundColor: aBadge.bg }]}>
+                    <Text style={[s.badgeText, { color: aBadge.text }]}>
+                      {agreementStatusLabels[a.status] ?? a.status}
+                    </Text>
+                  </View>
+                </View>
+              );
+            })
+          )}
         </View>
       </View>
     </ScrollView>
@@ -139,66 +324,113 @@ export default function HomeScreen() {
 const s = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: "#F9FAFB",
+    backgroundColor: colors.background,
   },
   centered: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#F9FAFB",
+    backgroundColor: colors.background,
   },
   emptyText: {
-    color: "#6B7280",
+    color: colors.muted,
     textAlign: "center",
   },
   header: {
-    paddingHorizontal: 20,
-    paddingTop: 24,
-    paddingBottom: 16,
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.xxl,
+    paddingBottom: spacing.lg,
   },
-  name: {
-    fontSize: 24,
+  heroTitle: {
+    fontSize: fontSize.hero,
     fontWeight: "700",
-    color: "#1F2937",
+    color: colors.text,
   },
-  address: {
-    color: "#6B7280",
-    marginTop: 4,
+  subtitle: {
+    fontSize: fontSize.md,
+    color: colors.muted,
+    marginTop: spacing.xs,
   },
   content: {
-    paddingHorizontal: 20,
+    paddingHorizontal: spacing.xl,
   },
-  card: {
-    backgroundColor: "#fff",
-    borderRadius: 12,
-    padding: 20,
-    marginBottom: 16,
+  statsRow: {
+    flexDirection: "row",
+    gap: spacing.sm,
+    marginBottom: spacing.xxl,
+  },
+  statCard: {
+    flex: 1,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    alignItems: "center",
+  },
+  statValue: {
+    fontSize: fontSize.xxl,
+    fontWeight: "700",
+  },
+  statLabel: {
+    fontSize: fontSize.xs,
+    fontWeight: "500",
+    marginTop: spacing.xs,
+    textAlign: "center",
+  },
+  section: {
+    marginBottom: spacing.xxl,
+  },
+  sectionTitle: {
+    fontSize: fontSize.lg,
+    fontWeight: "600",
+    color: colors.text,
+    marginBottom: spacing.md,
+  },
+  emptySection: {
+    color: colors.muted,
+    fontSize: fontSize.md,
+  },
+  listCard: {
+    backgroundColor: colors.card,
+    borderRadius: radius.md,
+    padding: spacing.lg,
+    marginBottom: spacing.sm,
+    flexDirection: "row",
+    alignItems: "center",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
     shadowRadius: 2,
     elevation: 1,
   },
-  halfCard: {
+  listIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.background,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: spacing.md,
+  },
+  listContent: {
     flex: 1,
   },
-  row: {
-    flexDirection: "row",
-    gap: 16,
+  listTitle: {
+    fontSize: fontSize.md,
+    fontWeight: "600",
+    color: colors.text,
   },
-  cardLabel: {
-    fontSize: 13,
-    color: "#6B7280",
-    marginBottom: 4,
+  listMeta: {
+    fontSize: fontSize.sm,
+    color: colors.muted,
+    marginTop: 2,
   },
-  cardValueLarge: {
-    fontSize: 30,
-    fontWeight: "700",
-    color: "#1F2937",
+  badge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: radius.full,
+    marginLeft: spacing.sm,
   },
-  cardValueAccent: {
-    fontSize: 30,
-    fontWeight: "700",
-    color: "#3B82F6",
+  badgeText: {
+    fontSize: fontSize.xs,
+    fontWeight: "600",
   },
 });
