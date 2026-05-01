@@ -17,6 +17,7 @@ export default function RootLayout() {
   const isReady = !loading && (!session || !supplierLoading);
 
   useEffect(() => {
+    console.log("[Layout] loading:", loading, "supplierLoading:", supplierLoading, "isReady:", isReady, "session:", !!session, "isSupplierUser:", isSupplierUser);
     if (!isReady) return;
     SplashScreen.hideAsync();
 
@@ -33,6 +34,7 @@ export default function RootLayout() {
     }
   }, [session, isReady, segments, isSupplierUser]);
 
+  console.log("[Layout render] loading:", loading, "supplierLoading:", supplierLoading, "isReady:", isReady, "session:", !!session, "isSupplierUser:", isSupplierUser);
   if (!isReady) return null;
 
   return (
