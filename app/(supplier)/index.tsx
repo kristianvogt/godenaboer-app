@@ -59,7 +59,7 @@ export default function SupplierHome() {
         .from("organization_agreements")
         .select("id, organization_id, organizations(id, name, address, latitude, longitude)")
         .eq("supplier_id", supplierId)
-        .in("status", ["enrolled", "active"]);
+        .in("status", ["enrolled", "active", "awaiting_inspection"]);
 
       if (error) {
         console.error("Feil ved henting av avtaler:", error);
