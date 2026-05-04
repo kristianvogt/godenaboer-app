@@ -55,11 +55,14 @@ export default function SupplierHome() {
       setUserLat(loc.coords.latitude);
       setUserLon(loc.coords.longitude);
 
+      console.log("[Supplier] supplierId:", supplierId);
+
       const { data, error } = await supabase
-        .from("organization_agreements")
-        .select("id, organization_id, organizations(id, name, address, latitude, longitude)")
-        .eq("supplier_id", supplierId)
-        .in("status", ["enrolled", "active", "awaiting_inspection"]);
+        .from("agreements")
+        .select("id, supplier_id, organization_agreements(id, organization_id, status, organizations(id, name, address, latitude, longitude))")
+        .eq("supplier_id", supplierId);
+
+      console.log("[Supplier] agreements result:", JSON.stringify(data), error?.message);
 
       if (error) {
         console.error("Feil ved henting av avtaler:", error);
@@ -67,25 +70,32 @@ export default function SupplierHome() {
       }
 
       const mapped: NearbyOrg[] = (data ?? [])
-        .filter((row: any) => row.organizations?.latitude && row.organizations?.longitude)
-        .map((row: any) => {
-          const org = row.organizations;
-          const dist = getDistanceMeters(
-            loc.coords.latitude,
-            loc.coords.longitude,
-            org.latitude,
-            org.longitude
-          );
-          return {
-            organizationId: org.id,
-            agreementId: row.id,
-            name: org.name,
-            address: org.address ?? "",
-            distance: dist,
-            latitude: org.latitude,
-            longitude: org.longitude,
-          };
-        })
+        .flatMap((agreement: any) =>
+          (agreement.organization_agreements ?? [])
+            .filter((oa: any) =>
+              ["enrolled", "active", "awaiting_inspection"].includes(oa.status) &&
+              oa.organizations?.latitude &&
+              oa.organizations?.longitude
+            )
+            .map((oa: any) => {
+              const org = oa.organizations;
+              const dist = getDistanceMeters(
+                loc.coords.latitude,
+                loc.coords.longitude,
+                org.latitude,
+                org.longitude
+              );
+              return {
+                organizationId: org.id,
+                agreementId: agreement.id,
+                name: org.name,
+                address: org.address ?? "",
+                distance: dist,
+                latitude: org.latitude,
+                longitude: org.longitude,
+              };
+            })
+        )
         .sort((a: NearbyOrg, b: NearbyOrg) => a.distance - b.distance);
 
       setOrgs(mapped);

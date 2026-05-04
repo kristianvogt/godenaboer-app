@@ -17,12 +17,14 @@ import * as Location from "expo-location";
 import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
+import { useSupplierMembership } from "@/hooks/useSupplierMembership";
 import { getDistanceMeters } from "@/lib/distance";
 import { colors, fontSize, spacing, radius } from "@/lib/theme";
 
 export default function CheckinScreen() {
   const router = useRouter();
   const { user } = useAuth();
+  const { supplierId } = useSupplierMembership();
   const { organizationId, agreementId } = useLocalSearchParams<{
     organizationId: string;
     agreementId: string;
@@ -89,14 +91,15 @@ export default function CheckinScreen() {
       const { error } = await supabase.from("cleaning_logs").insert({
         organization_id: organizationId,
         agreement_id: agreementId,
-        user_id: user.id,
-        checked_in_at: new Date().toISOString(),
+        supplier_id: supplierId,
+        performed_by: user.id,
+        performed_at: new Date().toISOString(),
         latitude: loc.coords.latitude,
         longitude: loc.coords.longitude,
         initials: initials.trim(),
-        note: note.trim() || null,
+        notes: note.trim() || null,
         flagged,
-        distance_meters: distance != null ? Math.round(distance) : null,
+        distance_from_address: distance != null ? Math.round(distance) : null,
       });
 
       if (error) {
