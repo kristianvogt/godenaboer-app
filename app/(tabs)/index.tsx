@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useState, useCallback } from "react";
 import {
   View,
   Text,
@@ -92,16 +92,12 @@ export default function HomeScreen() {
   async function fetchData() {
     if (!user) return;
 
-    console.log("[Home] fetchData start, user:", user?.id);
-
     try {
-      const { data: membership, error: membershipError } = await supabase
+      const { data: membership } = await supabase
         .from("memberships")
         .select("organization_id, role")
         .eq("user_id", user.id)
         .single();
-
-      console.log("[Home] membership result:", membership, membershipError?.message);
 
       if (!membership?.organization_id) {
         setLoading(false);
@@ -151,8 +147,6 @@ export default function HomeScreen() {
             .order("joined_at", { ascending: false })
             .limit(3),
         ]);
-
-      console.log("[Home] org result:", orgRes.data, orgRes.error?.message);
 
       if (orgRes.data) {
         setData({

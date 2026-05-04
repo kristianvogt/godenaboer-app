@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useState, useCallback } from "react";
 import {
   View,
   Text,
@@ -35,8 +35,6 @@ export default function SupplierHome() {
   const [orgs, setOrgs] = useState<NearbyOrg[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [userLat, setUserLat] = useState<number | null>(null);
-  const [userLon, setUserLon] = useState<number | null>(null);
 
   const fetchData = useCallback(async () => {
     if (!supplierId) return;
@@ -52,20 +50,14 @@ export default function SupplierHome() {
       const loc = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.Balanced,
       });
-      setUserLat(loc.coords.latitude);
-      setUserLon(loc.coords.longitude);
-
-      console.log("[Supplier] supplierId:", supplierId);
 
       const { data, error } = await supabase
         .from("agreements")
         .select("id, supplier_id, organization_agreements(id, organization_id, status, organizations(id, name, address, latitude, longitude))")
         .eq("supplier_id", supplierId);
 
-      console.log("[Supplier] agreements result:", JSON.stringify(data), error?.message);
-
       if (error) {
-        console.error("Feil ved henting av avtaler:", error);
+        console.error("Failed to fetch agreements:", error.message);
         return;
       }
 
@@ -100,7 +92,7 @@ export default function SupplierHome() {
 
       setOrgs(mapped);
     } catch (err) {
-      console.error("Feil:", err);
+      console.error("Failed to fetch nearby orgs:", err);
     } finally {
       setLoading(false);
       setRefreshing(false);

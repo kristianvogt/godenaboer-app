@@ -26,20 +26,22 @@ export function useSupplierMembership(): SupplierMembership {
     let isMounted = true;
 
     if (!userId) {
-      console.log("[SupplierMembership] no user, skipping fetch");
       setLoading(false);
       return;
     }
 
-    console.log("[SupplierMembership] fetching for user:", userId);
     supabase
       .from("supplier_memberships")
       .select("role, supplier_id, suppliers(name)")
       .eq("user_id", userId)
       .maybeSingle()
-      .then(({ data }) => {
+      .then(({ data, error }) => {
         if (!isMounted) return;
-        console.log("[SupplierMembership] result:", JSON.stringify(data));
+        if (error) {
+          console.error("Failed to fetch supplier membership:", error.message);
+          setLoading(false);
+          return;
+        }
         if (data) {
           setState({
             isSupplierUser: true,

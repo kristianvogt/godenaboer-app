@@ -17,15 +17,12 @@ export default function RootLayout() {
   const isReady = !loading;
 
   useEffect(() => {
-    console.log("[Layout] loading:", loading, "isReady:", isReady, "session:", !!session);
     if (!isReady) return;
     SplashScreen.hideAsync();
 
     const inAuthGroup = segments[0] === "login";
     const inSupplierGroup = segments[0] === "(supplier)";
     const inTabsGroup = segments[0] === "(tabs)";
-
-    console.log("[Layout] segments:", segments, "inAuthGroup:", inAuthGroup, "inTabsGroup:", inTabsGroup, "inSupplierGroup:", inSupplierGroup);
 
     if (!session && !inAuthGroup) {
       router.replace("/login");
@@ -34,29 +31,20 @@ export default function RootLayout() {
     } else if (session && !inTabsGroup && !inSupplierGroup) {
       router.replace("/(tabs)");
     } else if (session && inSupplierGroup && !supplierLoading && !isSupplierUser) {
-      // Ikke en supplier-bruker — send til tabs
       router.replace("/(tabs)");
     }
   }, [session, isReady, segments, supplierLoading, isSupplierUser]);
 
   useEffect(() => {
-    console.log("[Layout supplier] isReady:", isReady, "session:", !!session, "supplierLoading:", supplierLoading, "isSupplierUser:", isSupplierUser);
-    if (!isReady || !session) return;
+    if (!isReady || !session || supplierLoading) return;
 
     const inAuthGroup = segments[0] === "login";
-    const inSupplierGroup = segments[0] === "(supplier)";
-    const inTabsGroup = segments[0] === "(tabs)";
 
-    if (inAuthGroup) {
-      if (isSupplierUser) {
-        router.replace("/(supplier)");
-      } else {
-        router.replace("/(tabs)");
-      }
+    if (inAuthGroup && isSupplierUser) {
+      router.replace("/(supplier)");
     }
-  }, [isReady, session, isSupplierUser, segments]);
+  }, [isReady, session, isSupplierUser, supplierLoading, segments]);
 
-  console.log("[Layout render] loading:", loading, "supplierLoading:", supplierLoading, "isReady:", isReady, "session:", !!session, "isSupplierUser:", isSupplierUser);
   if (!isReady) return null;
 
   return (

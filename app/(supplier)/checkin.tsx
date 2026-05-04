@@ -56,8 +56,10 @@ export default function CheckinScreen() {
       .select("name, latitude, longitude")
       .eq("id", organizationId)
       .single()
-      .then(({ data }) => {
-        if (data) {
+      .then(({ data, error }) => {
+        if (error) {
+          console.error("Failed to fetch organization:", error.message);
+        } else if (data) {
           setOrgName(data.name);
           setOrgLat(data.latitude);
           setOrgLon(data.longitude);
@@ -104,7 +106,7 @@ export default function CheckinScreen() {
 
       if (error) {
         Alert.alert("Feil", "Kunne ikke lagre kvittering. Prøv igjen.");
-        console.error("Insert error:", error);
+        console.error("Failed to insert cleaning log:", error.message);
         setSubmitting(false);
         return;
       }
@@ -114,7 +116,7 @@ export default function CheckinScreen() {
       ]);
     } catch (err) {
       Alert.alert("Feil", "Kunne ikke hente posisjon. Sjekk at GPS er aktivert.");
-      console.error(err);
+      console.error("Failed to get location for checkin:", err);
     } finally {
       setSubmitting(false);
     }
