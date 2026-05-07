@@ -13,6 +13,7 @@ import FontAwesome from "@expo/vector-icons/FontAwesome";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
 import { colors, fontSize, spacing, radius } from "@/lib/theme";
+import { ticketStatusLabels, ticketStatusBadgeStyles, defaultTicketBadge, OPEN_TICKET_STATUSES } from "@/lib/ticketStatus";
 
 interface OrgData {
   name: string;
@@ -53,24 +54,6 @@ const agreementBadgeStyles: Record<string, { bg: string; text: string }> = {
   offer_received: { bg: "#E0E7FF", text: "#3730A3" },
   active: { bg: colors.successBg, text: colors.success },
   terminated: { bg: "#F3F4F6", text: "#4B5563" },
-};
-
-const statusLabels: Record<string, string> = {
-  new: "Ny",
-  sent_to_supplier: "Sendt",
-  reply_received: "Svar",
-  in_progress: "Under beh.",
-  resolved: "Løst",
-  rejected: "Avvist",
-};
-
-const statusBadgeStyles: Record<string, { bg: string; text: string }> = {
-  new: { bg: colors.warningBg, text: colors.warning },
-  sent_to_supplier: { bg: colors.primaryBg, text: colors.primary },
-  reply_received: { bg: "#E0E7FF", text: "#3730A3" },
-  in_progress: { bg: colors.primaryBg, text: colors.primary },
-  resolved: { bg: colors.successBg, text: colors.success },
-  rejected: { bg: colors.dangerBg, text: colors.danger },
 };
 
 const roleLabels: Record<string, string> = {
@@ -122,7 +105,7 @@ export default function HomeScreen() {
             .from("tickets")
             .select("id", { count: "exact", head: true })
             .eq("organization_id", orgId)
-            .in("status", ["new", "sent_to_supplier", "reply_received", "in_progress"]),
+            .in("status", OPEN_TICKET_STATUSES),
           supabase
             .from("tickets")
             .select("id", { count: "exact", head: true })
@@ -259,7 +242,7 @@ export default function HomeScreen() {
             <Text style={s.emptySection}>Ingen saker ennå.</Text>
           ) : (
             recentTickets.map((ticket) => {
-              const badge = statusBadgeStyles[ticket.status] ?? { bg: "#F3F4F6", text: "#4B5563" };
+              const badge = ticketStatusBadgeStyles[ticket.status] ?? defaultTicketBadge;
               return (
                 <TouchableOpacity
                   key={ticket.id}
@@ -281,7 +264,7 @@ export default function HomeScreen() {
                   </View>
                   <View style={[s.badge, { backgroundColor: badge.bg }]}>
                     <Text style={[s.badgeText, { color: badge.text }]}>
-                      {statusLabels[ticket.status] ?? ticket.status}
+                      {ticketStatusLabels[ticket.status] ?? ticket.status}
                     </Text>
                   </View>
                 </TouchableOpacity>

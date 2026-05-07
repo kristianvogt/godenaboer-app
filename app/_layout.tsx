@@ -26,12 +26,13 @@ export default function RootLayout() {
     const inAuthGroup = segments[0] === "login";
     const inSupplierGroup = segments[0] === "(supplier)";
     const inTabsGroup = segments[0] === "(tabs)";
+    const inTicketsGroup = segments[0] === "tickets";
 
     if (!session && !inAuthGroup) {
       router.replace("/login");
     } else if (session && inAuthGroup) {
       router.replace("/(tabs)");
-    } else if (session && !inTabsGroup && !inSupplierGroup) {
+    } else if (session && !inTabsGroup && !inSupplierGroup && !inTicketsGroup) {
       router.replace("/(tabs)");
     } else if (session && inSupplierGroup && !supplierLoading && !isSupplierUser) {
       router.replace("/(tabs)");

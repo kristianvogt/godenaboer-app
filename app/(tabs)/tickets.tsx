@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useState, useCallback } from "react";
 import {
   View,
   Text,
@@ -13,6 +13,7 @@ import FontAwesome from "@expo/vector-icons/FontAwesome";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
 import { colors, fontSize, spacing, radius } from "@/lib/theme";
+import { ticketStatusLabels, ticketStatusBadgeStyles, defaultTicketBadge, OPEN_TICKET_STATUSES } from "@/lib/ticketStatus";
 
 interface Ticket {
   id: string;
@@ -21,26 +22,6 @@ interface Ticket {
   created_at: string;
   profiles: { full_name: string } | null;
 }
-
-const statusLabels: Record<string, string> = {
-  new: "Ny",
-  sent_to_supplier: "Sendt",
-  reply_received: "Svar mottatt",
-  in_progress: "Under beh.",
-  resolved: "Løst",
-  rejected: "Avvist",
-};
-
-const statusBadgeStyles: Record<string, { bg: string; text: string }> = {
-  new: { bg: colors.warningBg, text: colors.warning },
-  sent_to_supplier: { bg: colors.primaryBg, text: colors.primary },
-  reply_received: { bg: "#E0E7FF", text: "#3730A3" },
-  in_progress: { bg: colors.primaryBg, text: colors.primary },
-  resolved: { bg: colors.successBg, text: colors.success },
-  rejected: { bg: colors.dangerBg, text: colors.danger },
-};
-
-const defaultBadge = { bg: "#F3F4F6", text: "#4B5563" };
 
 const avatarColors = [
   "#2563EB", "#7C3AED", "#DB2777", "#EA580C", "#059669", "#0891B2",
@@ -73,29 +54,22 @@ export default function TicketsScreen() {
   async function fetchTickets() {
     if (!user) return;
 
-    const { data: membership, error: membershipError } = await supabase
+    const { data: membership } = await supabase
       .from("memberships")
       .select("organization_id")
       .eq("user_id", user.id)
       .single();
 
-    console.log("[Tickets] Membership:", membership, "Error:", membershipError?.message);
-
     if (!membership?.organization_id) {
-      console.log("[Tickets] No organization_id found, aborting fetch");
       setLoading(false);
       return;
     }
 
-    console.log("[Tickets] Fetching tickets for org:", membership.organization_id);
-
-    const { data, error: ticketsError } = await supabase
+    const { data } = await supabase
       .from("tickets")
       .select("id, subject, status, created_at, profiles:created_by(full_name)")
       .eq("organization_id", membership.organization_id)
       .order("created_at", { ascending: false });
-
-    console.log("[Tickets] Response:", { count: data?.length, error: ticketsError?.message, data });
 
     const mapped = (data ?? []).map((t: any) => ({
       ...t,
@@ -118,9 +92,8 @@ export default function TicketsScreen() {
     setRefreshing(false);
   }
 
-  const openStatuses = ["new", "sent_to_supplier", "reply_received", "in_progress"];
-  const openTickets = tickets.filter((t) => openStatuses.includes(t.status));
-  const resolvedTickets = tickets.filter((t) => !openStatuses.includes(t.status));
+  const openTickets = tickets.filter((t) => OPEN_TICKET_STATUSES.includes(t.status));
+  const resolvedTickets = tickets.filter((t) => !OPEN_TICKET_STATUSES.includes(t.status));
 
   const sections = [
     ...(openTickets.length > 0
@@ -157,7 +130,7 @@ export default function TicketsScreen() {
           <Text style={s.sectionHeader}>{title}</Text>
         )}
         renderItem={({ item }) => {
-          const badge = statusBadgeStyles[item.status] ?? defaultBadge;
+          const badge = ticketStatusBadgeStyles[item.status] ?? defaultTicketBadge;
           const name = item.profiles?.full_name ?? "Ukjent";
           const avatarBg = getAvatarColor(name);
           const initials = getInitials(name);
@@ -177,7 +150,7 @@ export default function TicketsScreen() {
                   </Text>
                   <View style={[s.badge, { backgroundColor: badge.bg }]}>
                     <Text style={[s.badgeText, { color: badge.text }]}>
-                      {statusLabels[item.status] ?? item.status}
+                      {ticketStatusLabels[item.status] ?? item.status}
                     </Text>
                   </View>
                 </View>
