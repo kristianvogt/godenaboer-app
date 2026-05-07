@@ -4,15 +4,18 @@ import { StatusBar } from "expo-status-bar";
 import * as SplashScreen from "expo-splash-screen";
 import { useAuth } from "@/hooks/useAuth";
 import { useSupplierMembership } from "@/hooks/useSupplierMembership";
+import { usePushToken } from "@/hooks/usePushToken";
 import "../global.css";
 
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
-  const { session, loading } = useAuth();
+  const { session, loading, user } = useAuth();
   const { isSupplierUser, loading: supplierLoading } = useSupplierMembership();
   const segments = useSegments();
   const router = useRouter();
+
+  usePushToken(user?.id ?? null);
 
   const isReady = !loading;
 
