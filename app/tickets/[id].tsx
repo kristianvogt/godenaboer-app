@@ -98,6 +98,13 @@ export default function TicketDetailScreen() {
         .order("created_at", { ascending: true }),
     ]);
 
+    console.log("[ticket-detail] user.id:", user?.id);
+    console.log("[ticket-detail] tm rows:", tmRes.data?.map((m: any) => ({
+      id: m.id,
+      author_id: m.author_id,
+      content_preview: m.content?.slice(0, 30),
+    })));
+
     const tmMapped: UnifiedMessage[] = (tmRes.data ?? []).map((m: any) => {
       const profile = Array.isArray(m.profiles) ? m.profiles[0] : m.profiles;
       const isSelf = m.author_id === user?.id;
