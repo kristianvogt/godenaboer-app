@@ -10,6 +10,7 @@ import {
   Platform,
   Image,
   StyleSheet,
+  Alert,
 } from "react-native";
 import { useLocalSearchParams, useRouter, Stack } from "expo-router";
 import FontAwesome from "@expo/vector-icons/FontAwesome";
@@ -98,12 +99,12 @@ export default function TicketDetailScreen() {
         .order("created_at", { ascending: true }),
     ]);
 
-    console.log("[ticket-detail] user.id:", user?.id);
-    console.log("[ticket-detail] tm rows:", tmRes.data?.map((m: any) => ({
-      id: m.id,
-      author_id: m.author_id,
-      content_preview: m.content?.slice(0, 30),
-    })));
+    Alert.alert(
+      "Debug: ticket-detail",
+      `user.id: ${user?.id ?? "undefined"}\n\nTM rows:\n${(tmRes.data ?? [])
+        .map((m: any) => `  author_id: ${m.author_id}`)
+        .join("\n")}`
+    );
 
     const tmMapped: UnifiedMessage[] = (tmRes.data ?? []).map((m: any) => {
       const profile = Array.isArray(m.profiles) ? m.profiles[0] : m.profiles;
