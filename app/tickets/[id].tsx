@@ -85,6 +85,8 @@ export default function TicketDetailScreen() {
   }
 
   async function fetchMessages() {
+    if (!user?.id) return;  // wait for auth
+
     const [tmRes, stmRes] = await Promise.all([
       supabase
         .from("ticket_messages")
@@ -174,7 +176,7 @@ export default function TicketDetailScreen() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [id]);
+  }, [id, user?.id]);
 
   async function confirmResolved() {
     if (!ticket || updatingStatus) return;
